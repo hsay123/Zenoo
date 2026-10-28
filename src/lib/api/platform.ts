@@ -154,6 +154,67 @@ export const jobSchema = z.object({
   is_demo: z.boolean(),
 });
 
+/* Buyer funding (HHG F2) — GET /api/jobs/{id}/funding */
+const txRequestSchema = z.object({ to: z.string(), data: z.string() });
+
+export const jobFundingSchema = z.object({
+  job_id: z.string(),
+  funding_status: z.enum(["unfunded", "pending", "funded", "failed"]),
+  display_status: z.enum(["unfunded", "pending", "paid_awaiting_funding", "funded", "closed"]),
+  quote: z.object({
+    payout: z.string(),
+    fee: z.string(),
+    total: z.string(),
+    fee_bps: z.number(),
+    payout_units: z.string(),
+    total_cents: z.number(),
+  }),
+  task_count: z.number(),
+  reward_per_task: z.union([z.string(), z.number()]).transform(String),
+  chain: z.object({
+    chain_id: z.number(),
+    allowed: z.boolean(),
+    escrow_address: z.string().nullable(),
+    token_address: z.string().nullable(),
+    token_decimals: z.number(),
+  }),
+  methods: z.object({
+    wallet: z.boolean(),
+    card: z.boolean(),
+    card_auto_funding: z.boolean(),
+  }),
+  wallet_tx: z
+    .object({
+      funding_wallet_address: z.string(),
+      chain_job_id: z.string(),
+      amount_units: z.string(),
+      approve: txRequestSchema,
+      fund: txRequestSchema,
+    })
+    .nullable(),
+  payment: z
+    .object({
+      id: z.string(),
+      status: z.enum(["created", "paid", "funding", "funded", "failed"]),
+      amount_cents: z.number(),
+      currency: z.string(),
+      funding_tx_hash: z.string().nullable(),
+      error: z.string().nullable(),
+      paid_at: z.string().nullable(),
+      funded_at: z.string().nullable(),
+    })
+    .nullable(),
+});
+
+/** POST /api/jobs/{id}/fund — the funding intent (only `job` is used here). */
+export const fundIntentSchema = z.object({ job: jobSchema }).passthrough();
+
+/** POST /api/jobs/{id}/fund/checkout */
+export const fundCheckoutSchema = z.object({
+  payment_id: z.string(),
+  checkout_url: z.string().url(),
+});
+
 export const taskSchema = z.object({
   id: z.string(),
   job_id: z.string(),
@@ -577,6 +638,10 @@ export const platformPaths = {
   pauseJob: (id: string) => `/api/jobs/${id}/pause`,
   resumeJob: (id: string) => `/api/jobs/${id}/resume`,
   closeJob: (id: string) => `/api/jobs/${id}/close`,
+  jobFunding: (id: string) => `/api/jobs/${id}/funding`,
+  fundJob: (id: string) => `/api/jobs/${id}/fund`,
+  fundJobConfirm: (id: string) => `/api/jobs/${id}/fund/confirm`,
+  fundJobCheckout: (id: string) => `/api/jobs/${id}/fund/checkout`,
   jobTasks: (id: string) => `/api/jobs/${id}/tasks`,
   jobExport: (id: string) => `/api/jobs/${id}/export`,
   availableTasks: () => "/api/tasks/available",

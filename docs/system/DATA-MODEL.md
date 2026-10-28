@@ -49,7 +49,8 @@ erDiagram
 
 | Table | Purpose |
 | --- | --- |
-| `payments` | Dodo payment id (unique), job, amount paid, fee, status, webhook event ids — idempotent fiat funding |
+| `job_payments` | **[live, migration 011]** Dodo payment/session ids (unique), job, buyer, amount (cents), payout + fee (USDC), status, funding tx |
+| `payment_webhook_events` | **[live, migration 011]** processed webhook delivery ids (dedupe) |
 | `royalty_demo_payouts` | One row per demo split call (F5) |
 
 ## 2. State machines

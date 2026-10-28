@@ -100,8 +100,9 @@ a service in `backend/lib/**` → `ok(...)` envelope.
 
 **[live, F1]** `lib/settlement/network.ts` (chain from env, 6-decimal USDC units) and
 `lib/settlement/funding.ts` (JobFunded verification).
-**[HHG]** planned: `lib/funding/` (Dodo funding), `lib/review/aiReviewer.ts` (real model),
-`lib/reputation/` (score + tier), `app/api/payments/dodo/*` (checkout + webhook),
+**[live, F2]** `lib/funding/` (pricing, Dodo checkout + webhook, treasury funder, payment state
+machine) and `app/api/payments/*`.
+**[HHG]** planned: `lib/review/aiReviewer.ts` (real model), `lib/reputation/` (score + tier),
 `app/api/demo/royalty` (F5).
 
 ### 2.3 Data — Supabase **[live]**

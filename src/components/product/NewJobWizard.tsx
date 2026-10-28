@@ -7,6 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/Field";
 import { Check, Info } from "@/components/ui/icons";
 import { InlineError } from "@/components/product/AsyncView";
+import { JobFunding } from "@/components/product/JobFunding";
 import { useSession } from "@/lib/api/session";
 import { useProjects } from "@/lib/api/live";
 import { appChain } from "@/lib/privy/config";
@@ -228,6 +229,7 @@ export function NewJobWizard() {
 
   if (createdJob) {
     return (
+      <>
       <div className="rounded-xl border border-success-line bg-success-bg p-6">
         <div className="flex items-start gap-3">
           <Check aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-success-fg" />
@@ -235,7 +237,8 @@ export function NewJobWizard() {
             <h2 className="font-display text-title text-success-fg">Job published</h2>
             <p className="mt-2 max-w-xl text-body-sm text-success-fg">
               “{createdJob.title}” is live. {files.length} task
-              {files.length === 1 ? "" : "s"} are now claimable by contributors.
+              {files.length === 1 ? "" : "s"} become claimable by contributors once
+              the job is funded below.
             </p>
             <p className="mt-3 font-mono text-caption text-success-fg/80">
               {createdJob.id}
@@ -260,6 +263,9 @@ export function NewJobWizard() {
           </div>
         </div>
       </div>
+      {/* Fund step: the job must be funded before its tasks are claimable. */}
+      <JobFunding jobId={createdJob.id} jobStatus={createdJob.status} />
+      </>
     );
   }
 

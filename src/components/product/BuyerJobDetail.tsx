@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAction, useJob, useJobTasks } from "@/lib/api/live";
 import { QueryView, InlineError, InfoNote } from "@/components/product/AsyncView";
 import { WorkspaceHeader } from "@/components/product/WorkspaceHeader";
+import { JobFunding } from "@/components/product/JobFunding";
 import { Progress } from "@/components/product/Progress";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -157,7 +158,7 @@ export function BuyerJobDetail({ jobId }: { jobId: string }) {
                     Escrow
                   </dt>
                   <dd className="mt-1 text-body-sm text-ink-2">
-                    {job.chain_job_id ? (
+                    {job.funding_status === "funded" && job.chain_job_id ? (
                       <>
                         Funded on {appChain.name} —{" "}
                         <span className="font-mono text-[12px]">{job.chain_job_id}</span>
@@ -185,6 +186,8 @@ export function BuyerJobDetail({ jobId }: { jobId: string }) {
                 or real wherever a receipt displays it.
               </InfoNote>
             </section>
+
+            <JobFunding jobId={job.id} jobStatus={job.status} onFunded={jobQuery.reload} />
 
             <section className="mt-6">
               <h2 className="font-display text-title text-ink">Task states</h2>

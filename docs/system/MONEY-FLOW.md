@@ -75,8 +75,9 @@ buyer total          = budget + fee       (shown in the wizard, F2.1)
 ```
 
 The escrow holds contributor payouts only (decision D4). The fee is not in escrow: with
-Dodo it stays with the platform, and with direct wallet funding it is a separate transfer to
-the treasury **[HHG — confirm before building F2]**.
+Dodo it stays with the platform (`ZENO_FEE_BPS`, default 2000, in `lib/funding/pricing.ts`).
+**[live, open decision]** Direct wallet funding currently deposits the escrow budget only and
+charges no fee; collecting it would add a USDC transfer to the treasury.
 
 ## 4. Funding paths
 
@@ -101,7 +102,7 @@ sequenceDiagram
   BE-->>FE: job funding_status = funded
 ```
 
-### 4.2 Card / UPI via Dodo Payments (test mode) — F2.2, F2.3 **[HHG]**
+### 4.2 Card / UPI via Dodo Payments (test mode) — F2.2, F2.3 **[live]**
 
 ```mermaid
 sequenceDiagram
@@ -123,9 +124,17 @@ sequenceDiagram
   BE->>BE: verify JobFunded, mark job funded, record payment + tx
 ```
 
-Open points (PRD §9 Q3): the treasury holds a USDC float; it is a **third key**, separate from
-owner and relayer, server-side only, holding only test USDC this week. The treasury becomes
-the job's on-chain `buyer`; the real buyer is recorded off-chain in `payments`.
+The treasury holds a USDC float; it is a **third key** (`TREASURY_PRIVATE_KEY`), separate from
+owner and relayer (refused if it equals the relayer, is the escrow owner, or is on the deny-list),
+server-side only, holding only test USDC this week. The treasury becomes the job's on-chain
+`buyer`; the real buyer is recorded off-chain in `job_payments` (migration 011).
+
+Code: `lib/funding/{dodo,pricing,treasury,service}.ts`; routes `GET /api/jobs/{id}/funding`,
+`POST /api/jobs/{id}/fund/checkout`, `POST /api/payments/dodo/webhook`,
+`POST /api/payments/{id}/fund` (admin retry). Payment states: `created → paid → funding →
+funded`; without a treasury a paid job waits as **paid, awaiting funding** (job stays
+`pending`). A broadcast funding tx is re-verified on retry, never re-sent, and the treasury never
+funds a job that is pending through the buyer's own wallet.
 
 ## 5. Settlement (payout)
 

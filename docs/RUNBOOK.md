@@ -65,6 +65,17 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=    # optional; Privy's dashboard id is use
 ```
 Amounts are USDC with 6 decimals end to end (`parseUnits(x, 6)` at the chain boundary).
 
+### Buyer funding (HHG F2)
+- Apply `backend/supabase/migrations/011_job_payments.sql` (Supabase SQL editor). Until it is
+  applied, wallet funding works but card/UPI checkout cannot record payments.
+- Wallet funding needs `JOB_ESCROW_ADDRESS`, `USDC_ADDRESS`, `RPC_URL` and an allowed `CHAIN_ID`.
+- Card/UPI (Dodo **test mode** only) needs `DODO_API_KEY`, `DODO_WEBHOOK_SECRET` and
+  `DODO_PRODUCT_ID` (a pay-what-you-want product). Point a Dodo webhook at
+  `<backend>/api/payments/dodo/webhook` for `payment.succeeded`.
+- Auto-funding after a card payment needs `TREASURY_PRIVATE_KEY` (a fresh third key holding test
+  USDC + test ETH). Without it, paid jobs show "Paid, awaiting funding"; retry with
+  `POST /api/payments/{id}/fund` (admin) once it is set.
+
 ## 3. Start
 ```bash
 # Terminal 1 — backend
