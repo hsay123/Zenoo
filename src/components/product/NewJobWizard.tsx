@@ -9,6 +9,7 @@ import { Check, Info } from "@/components/ui/icons";
 import { InlineError } from "@/components/product/AsyncView";
 import { useSession } from "@/lib/api/session";
 import { useProjects } from "@/lib/api/live";
+import { appChain } from "@/lib/privy/config";
 import {
   PlatformError,
   SCHEMA_VERSIONS,
@@ -33,16 +34,18 @@ const steps = [
 type Modality = "image" | "video";
 
 /**
- * Amount unit for the testnet MVP is **native testnet MON** — the same number
- * is used for the buyer's budget/reward and the on-chain payout. We validate
- * the exact decimal shape (≤ 12 integer digits, ≤ 6 decimals, positive) instead
- * of coercing through `Number()`, which loses precision and would silently
- * disagree with the wei value settled on-chain.
+ * Amount unit is **USDC** (6 decimals) on Base — the same number is used for
+ * the buyer's budget/reward and the on-chain payout. We validate the exact
+ * decimal shape (≤ 12 integer digits, ≤ 6 decimals, positive) without ever
+ * coercing through `Number()`, which loses precision and would silently
+ * disagree with the USDC base units settled on-chain. (`Mon` in the helper
+ * names is historical.)
  */
 const MON_AMOUNT_RE = /^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/;
+const ZERO_AMOUNT_RE = /^0(?:\.0+)?$/;
 function isValidMonAmount(value: string): boolean {
   const trimmed = value.trim();
-  return MON_AMOUNT_RE.test(trimmed) && Number(trimmed) > 0;
+  return MON_AMOUNT_RE.test(trimmed) && !ZERO_AMOUNT_RE.test(trimmed);
 }
 
 type Values = {
@@ -479,7 +482,8 @@ export function NewJobWizard() {
                   id="budget"
                   type="number"
                   inputMode="decimal"
-                  label="Budget (testnet MON)"
+                  step="0.000001"
+                  label="Budget (testnet USDC)"
                   required
                   value={values.budget}
                   onChange={set("budget")}
@@ -489,7 +493,8 @@ export function NewJobWizard() {
                   id="reward"
                   type="number"
                   inputMode="decimal"
-                  label="Reward per task (testnet MON)"
+                  step="0.000001"
+                  label="Reward per task (testnet USDC)"
                   required
                   value={values.reward}
                   onChange={set("reward")}
@@ -506,8 +511,8 @@ export function NewJobWizard() {
               <div className="flex items-start gap-2.5 rounded-lg border border-info-line bg-info-bg p-4">
                 <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-info-fg" />
                 <p className="text-caption text-info-fg">
-                  Budget and reward are denominated in <strong>testnet MON</strong>, the
-                  same unit settled on Monad testnet. Testnet MON is a test currency
+                  Budget and reward are denominated in <strong>testnet USDC</strong>, the
+                  same unit settled on {appChain.name}. Testnet USDC is a test currency
                   with no real-world value. Payouts are only made for work that passes
                   review.
                 </p>
@@ -525,8 +530,8 @@ export function NewJobWizard() {
                   ["Modality", values.modality],
                   ["Schema", modalitySchemaFor(values.modality).name],
                   ["Files", `${files.length}`],
-                  ["Budget", `${values.budget} MON`],
-                  ["Reward / task", `${values.reward} MON`],
+                  ["Budget", `${values.budget} USDC`],
+                  ["Reward / task", `${values.reward} USDC`],
                   ["Deadline", values.deadline || "—"],
                   ["Labels", labelList.join(", ")],
                 ].map(([label, value]) => (

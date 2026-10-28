@@ -94,8 +94,8 @@ test.describe("buyer job creation", () => {
     await page.getByRole("heading", { name: JOB_TITLE }).click({ trial: false }).catch(() => {});
     await expect(page.getByRole("heading", { name: JOB_TITLE })).toBeVisible();
     await expect(page.getByText("Published", { exact: true }).first()).toBeVisible();
-    // Testnet MON, never USD (commit 14f50c7): "Reward / task 5 MON".
-    await expect(page.getByText(/Reward \/ task 5 MON/).first()).toBeVisible();
+    // Testnet USDC (6 decimals), never a fiat symbol: "Reward / task 5 USDC".
+    await expect(page.getByText(/Reward \/ task 5 USDC/).first()).toBeVisible();
     // One task was generated from the one uploaded asset.
     await expect(page.getByText("Standard", { exact: true }).first()).toBeVisible({
       timeout: 20_000,

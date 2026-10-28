@@ -1,18 +1,24 @@
 /** Small formatting helpers shared across product screens. */
 
 /**
- * Testnet-MON amounts are displayed as MON, never as a fiat value: there is no
- * MON↔USD equivalence to imply. Input is the decimal string the API returns
- * (`"0.100000"` → `"0.1 MON"`), so no floating-point rounding creeps in.
+ * USDC amounts are displayed as USDC (6 decimals), not with a fiat symbol.
+ * Input is the decimal string the API returns (`"0.100000"` → `"0.1 USDC"`),
+ * so no floating-point rounding creeps in.
  */
-export function formatMon(value: string | number): string {
+export function formatUsdc(value: string | number): string {
   const raw = typeof value === "number" ? value.toFixed(6) : value;
   const negative = raw.startsWith("-");
   const [whole = "0", fraction = ""] = raw.replace("-", "").split(".");
   const trimmed = fraction.replace(/0+$/, "");
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${negative ? "-" : ""}${grouped}${trimmed ? `.${trimmed}` : ""} MON`;
+  return `${negative ? "-" : ""}${grouped}${trimmed ? `.${trimmed}` : ""} USDC`;
 }
+
+/**
+ * @deprecated Use `formatUsdc`. Kept so existing imports keep working; since
+ * the move to USDC on Base it formats USDC.
+ */
+export const formatMon = formatUsdc;
 
 export function formatCount(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);

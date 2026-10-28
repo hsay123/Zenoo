@@ -1,28 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { formatMon, formatTimecode } from "./format";
+import { formatMon, formatTimecode, formatUsdc } from "./format";
 
-describe("formatMon", () => {
-  it("formats the API decimal string as MON, trimming trailing zeros", () => {
-    expect(formatMon("0.100000")).toBe("0.1 MON");
-    expect(formatMon("1.000000")).toBe("1 MON");
-    expect(formatMon("0.000000")).toBe("0 MON");
+describe("formatUsdc", () => {
+  it("formats the API decimal string as USDC, trimming trailing zeros", () => {
+    expect(formatUsdc("0.100000")).toBe("0.1 USDC");
+    expect(formatUsdc("1.000000")).toBe("1 USDC");
+    expect(formatUsdc("0.000000")).toBe("0 USDC");
   });
 
   it("preserves significant decimals up to six places", () => {
-    expect(formatMon("12.345678")).toBe("12.345678 MON");
-    expect(formatMon("0.000001")).toBe("0.000001 MON");
+    expect(formatUsdc("12.345678")).toBe("12.345678 USDC");
+    expect(formatUsdc("0.000001")).toBe("0.000001 USDC");
+    expect(formatUsdc("0.040000")).toBe("0.04 USDC");
   });
 
   it("groups thousands", () => {
-    expect(formatMon("1234567.500000")).toBe("1,234,567.5 MON");
+    expect(formatUsdc("1234567.500000")).toBe("1,234,567.5 USDC");
   });
 
   it("accepts numbers as well as strings", () => {
-    expect(formatMon(0.25)).toBe("0.25 MON");
+    expect(formatUsdc(0.25)).toBe("0.25 USDC");
   });
 
-  it("never emits a fiat symbol", () => {
-    expect(formatMon("0.1")).not.toContain("$");
+  it("never emits a fiat symbol or the old MON unit", () => {
+    expect(formatUsdc("0.1")).not.toContain("$");
+    expect(formatUsdc("0.1")).not.toContain("MON");
+  });
+
+  it("keeps the deprecated formatMon name as an alias", () => {
+    expect(formatMon("0.1")).toBe("0.1 USDC");
   });
 });
 

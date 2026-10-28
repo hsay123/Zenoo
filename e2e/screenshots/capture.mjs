@@ -41,6 +41,13 @@ for (const [name, path] of PAGES) {
   await page.addStyleTag({
     content: "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}video{visibility:hidden!important}",
   });
+  // Privy initialises asynchronously and keeps auth buttons disabled until it
+  // is ready; wait for that so runs compare the settled page, not a loading one.
+  await page
+    .waitForFunction(() => !document.querySelector("main button[disabled]"), null, {
+      timeout: 15_000,
+    })
+    .catch(() => {});
   await page.waitForTimeout(500);
   await page.screenshot({ path: join(outDir, `${name}.png`), fullPage: true });
   console.log(`captured ${name} (${page.url()})`);

@@ -11,6 +11,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { FileText, Download } from "@/components/ui/icons";
 import { formatCount, formatDate, formatMon } from "@/lib/utils/format";
 import { jobSchema, platformPaths, type Job, type Task } from "@/lib/api/platform";
+import { appChain } from "@/lib/privy/config";
 
 const countBy = (tasks: Task[], statuses: Task["status"][]) =>
   tasks.filter((task) => statuses.includes(task.status)).length;
@@ -158,7 +159,7 @@ export function BuyerJobDetail({ jobId }: { jobId: string }) {
                   <dd className="mt-1 text-body-sm text-ink-2">
                     {job.chain_job_id ? (
                       <>
-                        Funded on Monad testnet —{" "}
+                        Funded on {appChain.name} —{" "}
                         <span className="font-mono text-[12px]">{job.chain_job_id}</span>
                       </>
                     ) : (
