@@ -62,7 +62,28 @@ const envSchema = z.object({
       (v) => !v || /^0x[0-9a-fA-F]{40}$/.test(v),
       "JOB_ESCROW_ADDRESS must be a 0x-prefixed address",
     ),
+  // Settlement chain: 84532 = Base Sepolia (default), 8453 = Base. The preflight
+  // only allows the chains in SETTLEMENT_ALLOWED_CHAIN_IDS (lib/settlement/network.ts).
+  CHAIN_ID: z
+    .string()
+    .optional()
+    .default("84532")
+    .refine((v) => /^\d+$/.test(v.trim()), "CHAIN_ID must be a positive integer")
+    .transform((v) => parseInt(v.trim(), 10)),
+  RPC_URL: z.string().url().optional(),
+  // Deprecated alias for RPC_URL (prior Monad-testnet deployments). Read only
+  // when RPC_URL is unset, so existing configs keep loading; a Monad RPC then
+  // fails the chain check and settlement stays on the mock.
   MONAD_RPC_URL: z.string().url().optional(),
+  // ERC-20 the escrow holds (USDC, 6 decimals). The preflight requires the
+  // escrow's on-chain token() to equal this address.
+  USDC_ADDRESS: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v || /^0x[0-9a-fA-F]{40}$/.test(v),
+      "USDC_ADDRESS must be a 0x-prefixed address",
+    ),
   SETTLEMENT_PRIVATE_KEY: z
     .string()
     .optional()

@@ -3,10 +3,11 @@
  *
  * Real (on-chain) settlement is only ever safe when the backend signer is a
  * fresh, allow-listed relayer on a verified `JobEscrow` deployment whose owner
- * is a *different* address and whose chain is Monad testnet (10143). This module
- * answers that question without moving any money: it reads the RPC and the
- * contract and reports every check that must pass before
- * `JOB_ESCROW_ADDRESS` / `MONAD_RPC_URL` / `SETTLEMENT_PRIVATE_KEY` are set.
+ * is a *different* address, whose token is the configured USDC, and whose chain
+ * is the configured `CHAIN_ID` and on the allow-list (Base Sepolia this week).
+ * This module answers that question without moving any money: it reads the RPC
+ * and the contract and reports every check that must pass before
+ * `JOB_ESCROW_ADDRESS` / `RPC_URL` / `SETTLEMENT_PRIVATE_KEY` are set.
  *
  * The rule is fail-closed: `ok` is true only when settlement is configured AND
  * every check passes. Any missing/failed check leaves the platform on
@@ -23,20 +24,24 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { monadTestnet } from "viem/chains";
 import type { Env } from "@/lib/env";
-
-/** Monad testnet — the only chain settlement is allowed to run on. */
-export const MONAD_TESTNET_CHAIN_ID = 10143;
+import {
+  SETTLEMENT_ALLOWED_CHAIN_IDS,
+  TOKEN_DECIMALS,
+  chainForId,
+  isAllowedChain,
+  resolveRpcUrl,
+} from "@/lib/settlement/network";
 
 /**
  * Settlement ABI revision the backend requires of the deployed escrow. The
  * hardened `JobEscrow` reports it via `SETTLEMENT_ABI_VERSION()`. Any other
  * value (including a revert from a pre-hardening contract) fails closed, so a
  * stale deployment can never receive real payouts even if it happens to expose
- * `owner()`/`relayers()`.
+ * `owner()`/`relayers()`. v3 is the ERC-20 (USDC) escrow; the v2 native-MON
+ * escrow on Monad testnet is refused.
  */
-export const SETTLEMENT_ABI_VERSION_EXPECTED = BigInt(2);
+export const SETTLEMENT_ABI_VERSION_EXPECTED = BigInt(3);
 
 /**
  * Addresses that must never act as the settlement signer or the escrow owner,
@@ -72,6 +77,24 @@ export const jobEscrowAdminAbi = [
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    type: "function",
+    name: "token",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+] as const;
+
+/** The one ERC-20 view the preflight needs from the token. */
+export const erc20DecimalsAbi = [
+  {
+    type: "function",
+    name: "decimals",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+  },
 ] as const;
 
 export interface PreflightCheck {
@@ -103,6 +126,10 @@ export interface PreflightDeps {
   getOwner(address: Address): Promise<Address>;
   isRelayer(address: Address, who: Address): Promise<boolean>;
   getAbiVersion(address: Address): Promise<bigint>;
+  /** The escrow's on-chain `token()`. */
+  getToken(address: Address): Promise<Address>;
+  /** The token's `decimals()`. */
+  getTokenDecimals(token: Address): Promise<number>;
 }
 
 function errorMessage(cause: unknown): string {
@@ -111,9 +138,13 @@ function errorMessage(cause: unknown): string {
   return message.split("\n")[0];
 }
 
-/** Real deps backed by the configured Monad RPC. */
-export function chainPreflightDeps(rpcUrl: string): PreflightDeps {
-  const client = createPublicClient({ chain: monadTestnet, transport: http(rpcUrl) });
+/**
+ * Real deps backed by the configured RPC. The viem chain object only shapes
+ * formatting; the chain check below always asks the RPC for its real id.
+ */
+export function chainPreflightDeps(rpcUrl: string, chainId: number): PreflightDeps {
+  const chain = chainForId(chainId) ?? undefined;
+  const client = createPublicClient({ chain, transport: http(rpcUrl) });
   return {
     getChainId: () => client.getChainId(),
     getBytecode: (address) => client.getBytecode({ address }),
@@ -132,6 +163,10 @@ export function chainPreflightDeps(rpcUrl: string): PreflightDeps {
         abi: jobEscrowAdminAbi,
         functionName: "SETTLEMENT_ABI_VERSION",
       }),
+    getToken: (address) =>
+      client.readContract({ address, abi: jobEscrowAdminAbi, functionName: "token" }),
+    getTokenDecimals: (token) =>
+      client.readContract({ address: token, abi: erc20DecimalsAbi, functionName: "decimals" }),
   };
 }
 
@@ -149,8 +184,10 @@ export async function runSettlementPreflight(
   deps?: PreflightDeps,
 ): Promise<SettlementPreflightReport> {
   const escrow = (env.JOB_ESCROW_ADDRESS ?? "").trim();
-  const rpcUrl = (env.MONAD_RPC_URL ?? "").trim();
+  const rpcUrl = resolveRpcUrl(env);
   const key = (env.SETTLEMENT_PRIVATE_KEY ?? "").trim();
+  const expectedChainId = env.CHAIN_ID;
+  const expectedToken = (env.USDC_ADDRESS ?? "").trim();
   const configured = Boolean(escrow && rpcUrl && key);
 
   const checks: PreflightCheck[] = [];
@@ -160,7 +197,7 @@ export async function runSettlementPreflight(
     push(
       "configured",
       false,
-      "JOB_ESCROW_ADDRESS, MONAD_RPC_URL and SETTLEMENT_PRIVATE_KEY must all be set; " +
+      "JOB_ESCROW_ADDRESS, RPC_URL and SETTLEMENT_PRIVATE_KEY must all be set; " +
         "while any is missing, MockSettlementService stays in effect (is_mock = true)",
     );
     return {
@@ -184,16 +221,26 @@ export async function runSettlementPreflight(
     push("signer", false, `SETTLEMENT_PRIVATE_KEY is invalid: ${errorMessage(cause)}`);
   }
 
-  const client = deps ?? chainPreflightDeps(rpcUrl);
+  const client = deps ?? chainPreflightDeps(rpcUrl, expectedChainId);
 
-  // The RPC must actually be Monad testnet — never mainnet, never a fork.
+  // The configured chain must be on the allow-list (Base Sepolia this week —
+  // never Base mainnet until the audit gate is cleared), and the RPC must
+  // actually be that chain.
+  push(
+    "chain_allowed",
+    isAllowedChain(expectedChainId),
+    isAllowedChain(expectedChainId)
+      ? `CHAIN_ID ${expectedChainId} is allowed for settlement`
+      : `CHAIN_ID ${expectedChainId} is not allowed for settlement ` +
+          `(allowed: ${SETTLEMENT_ALLOWED_CHAIN_IDS.join(", ")})`,
+  );
   let chainId: number | null = null;
   try {
     chainId = await client.getChainId();
     push(
       "chain",
-      chainId === MONAD_TESTNET_CHAIN_ID,
-      `RPC reports chainId ${chainId} (expected ${MONAD_TESTNET_CHAIN_ID})`,
+      chainId === expectedChainId,
+      `RPC reports chainId ${chainId} (expected ${expectedChainId})`,
     );
   } catch (cause) {
     push("chain", false, `RPC unreachable: ${errorMessage(cause)}`);
@@ -239,6 +286,42 @@ export async function runSettlementPreflight(
         "escrow does not report SETTLEMENT_ABI_VERSION (stale or unknown " +
           `contract): ${errorMessage(cause)}`,
       );
+    }
+
+    // The escrow must hold the configured USDC, and that token must use the
+    // 6 decimals every amount conversion assumes.
+    if (!expectedToken) {
+      push(
+        "token",
+        false,
+        "USDC_ADDRESS must be set so the escrow's token can be verified",
+      );
+    } else {
+      try {
+        const token = await client.getToken(escrow as Address);
+        const matches = token.toLowerCase() === expectedToken.toLowerCase();
+        push(
+          "token",
+          matches,
+          matches
+            ? `escrow token ${token} matches USDC_ADDRESS`
+            : `escrow token ${token} does not match USDC_ADDRESS ${expectedToken}`,
+        );
+        if (matches) {
+          try {
+            const decimals = await client.getTokenDecimals(token);
+            push(
+              "token_decimals",
+              decimals === TOKEN_DECIMALS,
+              `token reports ${decimals} decimals (expected ${TOKEN_DECIMALS})`,
+            );
+          } catch (cause) {
+            push("token_decimals", false, `could not read token decimals: ${errorMessage(cause)}`);
+          }
+        }
+      } catch (cause) {
+        push("token", false, `escrow does not report token(): ${errorMessage(cause)}`);
+      }
     }
 
     if (signer && owner) {

@@ -16,6 +16,12 @@ import { loadJobForActor, toJob, type JobRow } from "@/lib/jobs/repository";
 import { getSupabase } from "@/lib/db/supabase";
 import { getEnv } from "@/lib/env";
 import { keccak256, stringToHex } from "viem";
+import {
+  TOKEN_DECIMALS,
+  isAllowedChain,
+  resolveRpcUrl,
+  toTokenUnits,
+} from "@/lib/settlement/network";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -61,6 +67,21 @@ export async function POST(
       if (!escrowAddress) {
         throw HttpError.internal("JobEscrow contract not configured");
       }
+      if (!env.USDC_ADDRESS) {
+        throw HttpError.internal("USDC token address not configured");
+      }
+      if (!isAllowedChain(env.CHAIN_ID)) {
+        throw HttpError.conflict(`Funding is not enabled on chain ${env.CHAIN_ID}`);
+      }
+
+      // Exact USDC base units (6 decimals) from the stored decimal budget —
+      // never through a JS float.
+      let amountUnits: bigint;
+      try {
+        amountUnits = toTokenUnits(String(job.budget));
+      } catch {
+        throw HttpError.internal(`Job budget is not a valid USDC amount: ${job.budget}`);
+      }
 
       // Derive the on-chain job ID: keccak256(utf8(job UUID))
       const chainJobId = keccak256(stringToHex(job.id));
@@ -83,14 +104,21 @@ export async function POST(
 
       const updatedJob = toJob(data as JobRow);
 
-      // Return the funding information for the frontend to initiate the transaction
+      // Return the funding information for the frontend to initiate the
+      // transaction: USDC.approve(escrow_address, amount_units), then
+      // JobEscrow.fundJob(chain_job_id, amount_units).
       return ok({
         job: updatedJob,
         escrow_address: env.JOB_ESCROW_ADDRESS,
         chain_job_id: chainJobId,
-        amount_wei: (BigInt(Math.round(Number(job.budget) * 1e18))).toString(),
-        rpc_url: env.MONAD_RPC_URL,
-        chain_id: 10143,
+        amount_units: amountUnits.toString(),
+        // Deprecated alias of `amount_units`, kept so existing clients keep
+        // parsing. Since the USDC migration it is USDC base units, not wei.
+        amount_wei: amountUnits.toString(),
+        token_address: env.USDC_ADDRESS,
+        token_decimals: TOKEN_DECIMALS,
+        rpc_url: resolveRpcUrl(env),
+        chain_id: env.CHAIN_ID,
       });
     }),
   );

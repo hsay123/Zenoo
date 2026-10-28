@@ -1,7 +1,7 @@
 /**
  * Operator CLI: run the fail-closed settlement preflight.
  *
- * Read-only. It inspects the configured Monad-testnet RPC and the `JobEscrow`
+ * Read-only. It inspects the configured settlement RPC (Base Sepolia) and the `JobEscrow`
  * deployment and reports whether real settlement is safe to enable. It never
  * signs or broadcasts a transaction and never prints the signer key.
  *

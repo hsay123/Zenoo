@@ -1,9 +1,13 @@
 /**
- * Real settlement against the Monad-testnet `JobEscrow` contract.
+ * Real settlement against the USDC `JobEscrow` contract on Base.
  *
- * This service is selected only when `JOB_ESCROW_ADDRESS`, `MONAD_RPC_URL` and
- * `SETTLEMENT_PRIVATE_KEY` are all present. Otherwise the platform keeps the
+ * This service is selected only when `JOB_ESCROW_ADDRESS`, `RPC_URL` (or the
+ * deprecated `MONAD_RPC_URL`) and `SETTLEMENT_PRIVATE_KEY` are all present and
+ * `CHAIN_ID` is a known Base chain. Otherwise the platform keeps the
  * `MockSettlementService`, and every receipt stays `is_mock = true`.
+ *
+ * Rewards are decimal USDC strings; they become token base units with
+ * `toTokenUnits` (6 decimals), never `parseEther`.
  *
  * A receipt is recorded as real (`is_mock = false`) only after the transaction
  * is mined successfully AND the expected `TaskSettled` event is decoded from
@@ -23,15 +27,14 @@ import {
   encodeFunctionData,
   http,
   keccak256,
-  parseEther,
   stringToHex,
   type Address,
   type Hex,
   type Log,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { monadTestnet } from "viem/chains";
 import { getEnv, type Env } from "@/lib/env";
+import { chainForId, resolveRpcUrl, toTokenUnits } from "@/lib/settlement/network";
 import { HttpError } from "@/lib/api/errors";
 import type {
   SettlementRequest,
@@ -39,8 +42,27 @@ import type {
   SettlementService,
 } from "@/lib/settlement/service";
 
-/** Minimal ABI: the one function and the one event the backend uses. */
+/** Minimal ABI: the escrow functions and events the backend and buyer UI use. */
 export const jobEscrowAbi = [
+  {
+    type: "function",
+    name: "fundJob",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "jobId", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "event",
+    name: "JobFunded",
+    inputs: [
+      { name: "jobId", type: "bytes32", indexed: true },
+      { name: "funder", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
   {
     type: "function",
     name: "settle",
@@ -189,9 +211,9 @@ export class ChainSettlementService implements SettlementService {
 
     let amount: bigint;
     try {
-      amount = parseEther(req.amount as `${number}`);
+      amount = toTokenUnits(req.amount);
     } catch {
-      throw HttpError.internal(`Reward is not a valid MON amount: ${req.amount}`);
+      throw HttpError.internal(`Reward is not a valid USDC amount: ${req.amount}`);
     }
 
     return {
@@ -211,7 +233,7 @@ export class ChainSettlementService implements SettlementService {
 
     let amount: bigint;
     try {
-      amount = parseEther(req.amount as `${number}`);
+      amount = toTokenUnits(req.amount);
     } catch {
       return false;
     }
@@ -228,25 +250,28 @@ export class ChainSettlementService implements SettlementService {
 
 /**
  * Build the chain service from the environment, or `null` when any of the three
- * required settings is missing/empty (mock stays in effect).
+ * required settings is missing/empty or `CHAIN_ID` is not a known Base chain
+ * (mock stays in effect). Whether the chain is *allowed* is the preflight's job.
  */
 export function createChainSettlementService(
   env: Env = getEnv(),
 ): ChainSettlementService | null {
-  const { JOB_ESCROW_ADDRESS, MONAD_RPC_URL, SETTLEMENT_PRIVATE_KEY } = env;
-  if (!JOB_ESCROW_ADDRESS || !MONAD_RPC_URL || !SETTLEMENT_PRIVATE_KEY) {
+  const { JOB_ESCROW_ADDRESS, SETTLEMENT_PRIVATE_KEY } = env;
+  const rpcUrl = resolveRpcUrl(env);
+  const chain = chainForId(env.CHAIN_ID);
+  if (!JOB_ESCROW_ADDRESS || !rpcUrl || !SETTLEMENT_PRIVATE_KEY || !chain) {
     return null;
   }
 
   const account = privateKeyToAccount(SETTLEMENT_PRIVATE_KEY as Hex);
-  const transport = http(MONAD_RPC_URL);
-  const wallet = createWalletClient({ account, chain: monadTestnet, transport });
-  const publicClient = createPublicClient({ chain: monadTestnet, transport });
+  const transport = http(rpcUrl);
+  const wallet = createWalletClient({ account, chain, transport });
+  const publicClient = createPublicClient({ chain, transport });
 
   return new ChainSettlementService({
     escrowAddress: JOB_ESCROW_ADDRESS as Address,
     sendTransaction: ({ to, data }) =>
-      wallet.sendTransaction({ account, chain: monadTestnet, to, data }),
+      wallet.sendTransaction({ account, chain, to, data }),
     waitForTransactionReceipt: ({ hash }) => publicClient.waitForTransactionReceipt({ hash }),
   });
 }

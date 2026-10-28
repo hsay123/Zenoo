@@ -10,6 +10,7 @@
 import { describe, it, expect } from "vitest";
 import {
   concat,
+  decodeFunctionData,
   encodeAbiParameters,
   encodeEventTopics,
   keccak256,
@@ -39,7 +40,7 @@ const JOB_ID = "job-1";
 const TASK_ID = "task-1";
 const JOB_B32 = toBytes32Id(JOB_ID);
 const TASK_B32 = toBytes32Id(TASK_ID);
-const AMOUNT = BigInt("250000000000000000"); // 0.25 MON
+const AMOUNT = BigInt(250000); // 0.25 USDC (6 decimals)
 
 function settledLog(opts: {
   jobId?: Hex;
@@ -165,8 +166,47 @@ describe("ChainSettlementService.settle", () => {
 
   it("refuses a non-numeric reward", async () => {
     await expect(serviceFor([settledLog({})]).settle(request({ amount: "lots" }))).rejects.toThrow(
-      /valid MON amount/i,
+      /valid USDC amount/i,
     );
+  });
+
+  it("refuses a reward with more than 6 decimal places", async () => {
+    await expect(
+      serviceFor([settledLog({})]).settle(request({ amount: "0.0000001" })),
+    ).rejects.toThrow(/valid USDC amount/i);
+  });
+
+  it("refuses exponent notation instead of guessing its value", async () => {
+    await expect(serviceFor([settledLog({})]).settle(request({ amount: "1e-6" }))).rejects.toThrow(
+      /valid USDC amount/i,
+    );
+  });
+
+  it("rejects an event carrying the old 18-decimal (wei) amount", async () => {
+    // 0.25 * 10^18 is what parseEther produced before the USDC migration; a
+    // payout recorded with it would be a 10^12x mismatch.
+    await expect(
+      serviceFor([settledLog({ amount: BigInt("250000000000000000") })]).settle(request()),
+    ).rejects.toThrow(/does not match/i);
+  });
+
+  it("encodes the reward as 6-decimal USDC base units in settle()", async () => {
+    let sent: Hex | null = null;
+    const service = new ChainSettlementService({
+      escrowAddress: ESCROW,
+      sendTransaction: async ({ data }) => {
+        sent = data;
+        return TX_HASH;
+      },
+      waitForTransactionReceipt: async () => ({
+        status: "success",
+        logs: [settledLog({ amount: BigInt(40000) })],
+      }),
+    });
+    await service.settle(request({ amount: "0.04" }));
+    const decoded = decodeFunctionData({ abi: jobEscrowAbi, data: sent! });
+    expect(decoded.functionName).toBe("settle");
+    expect(decoded.args?.[3]).toBe(BigInt(40000));
   });
 });
 
@@ -218,7 +258,8 @@ describe("ChainSettlementService.verify", () => {
 describe("createChainSettlementService", () => {
   const baseEnv = {
     JOB_ESCROW_ADDRESS: ESCROW,
-    MONAD_RPC_URL: "https://testnet-rpc.monad.xyz",
+    CHAIN_ID: 84532,
+    RPC_URL: "https://sepolia.base.org",
     SETTLEMENT_PRIVATE_KEY: `0x${"11".repeat(32)}`,
   };
 
@@ -234,6 +275,22 @@ describe("createChainSettlementService", () => {
 
   it("builds a service when all three settings are present", () => {
     const service = createChainSettlementService(baseEnv as unknown as Env);
+    expect(service).toBeInstanceOf(ChainSettlementService);
+  });
+
+  it("returns null when CHAIN_ID is not a known Base chain", () => {
+    expect(
+      createChainSettlementService({ ...baseEnv, CHAIN_ID: 10143 } as unknown as Env),
+    ).toBeNull();
+  });
+
+  it("still accepts the deprecated MONAD_RPC_URL alias when RPC_URL is unset", () => {
+    const { RPC_URL: _unused, ...rest } = baseEnv;
+    void _unused;
+    const service = createChainSettlementService({
+      ...rest,
+      MONAD_RPC_URL: "https://sepolia.base.org",
+    } as unknown as Env);
     expect(service).toBeInstanceOf(ChainSettlementService);
   });
 });
