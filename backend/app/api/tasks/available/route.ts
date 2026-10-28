@@ -3,7 +3,8 @@
  *
  * Side effect: expired leases are released before the listing is produced.
  * `gold_answer` is never selected (see TASK_PUBLIC_COLUMNS).
- * Only tasks from funded, non-demo jobs are shown.
+ * Only tasks from funded, non-demo jobs are shown, filtered by the caller's
+ * reputation tier (New: gold tasks only; video needs Trusted).
  */
 
 import type { NextRequest } from "next/server";
@@ -20,6 +21,9 @@ import {
   searchParamsToRecord,
 } from "@/lib/validation/jobs";
 import type { Task } from "@/src/types/api";
+import { getEnv } from "@/lib/env";
+import { accessForTier } from "@/lib/reputation/score";
+import { getContributorReputation } from "@/lib/reputation/service";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -28,7 +32,7 @@ export async function OPTIONS() {
 export async function GET(req: NextRequest) {
   return withCors(
     await withErrorHandler(async () => {
-      await requireRole(req, "contributor");
+      const user = await requireRole(req, "contributor");
 
       const filters = listAvailableTasksQuerySchema.parse(
         searchParamsToRecord(req.nextUrl.searchParams),
@@ -68,6 +72,15 @@ export async function GET(req: NextRequest) {
         .range(page.from, page.to);
 
       if (filters.modality) query = query.eq("modality", filters.modality);
+
+      // Reputation gating (HHG F4): New contributors see gold (qualification)
+      // tasks only; video needs Trusted. Enforced again at claim time.
+      const reputation = await getContributorReputation(user.id, getEnv());
+      if (reputation.gating) {
+        const access = accessForTier(reputation.tier);
+        if (access.goldOnly) query = query.eq("is_gold", true);
+        if (!access.video) query = query.neq("modality", "video");
+      }
 
       const { data, error, count } = await query;
       if (error) throw HttpError.internal(`Failed to list tasks: ${error.message}`);

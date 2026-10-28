@@ -27,6 +27,9 @@ import { getJobStatus } from "@/lib/jobs/repository";
 import { createSignedMediaUrl } from "@/lib/storage";
 import { getSupabase } from "@/lib/db/supabase";
 import type { ClaimResult } from "@/src/types/api";
+import { getEnv } from "@/lib/env";
+import { claimBlockReason } from "@/lib/reputation/score";
+import { getContributorReputation } from "@/lib/reputation/service";
 
 const CLAIM_RATE = { points: 30, duration: 60 };
 
@@ -81,8 +84,33 @@ export async function POST(
             throw HttpError.conflict("Job is not open for claiming");
           }
 
-          const leaseExpiry = leaseExpiryFromNow();
           const supabase = getSupabase();
+
+          // Only funded jobs' tasks are claimable (matches GET /tasks/available):
+          // work on an unfunded job could never be paid from escrow.
+          const { data: jobFunding, error: fundingError } = await supabase
+            .from("jobs")
+            .select("funding_status")
+            .eq("id", task.job_id as string)
+            .maybeSingle();
+          if (fundingError) {
+            throw HttpError.internal(`Failed to load job funding: ${fundingError.message}`);
+          }
+          if (jobFunding?.funding_status !== "funded") {
+            throw HttpError.conflict("Job is not funded yet");
+          }
+
+          // Reputation gating (HHG F4), enforced server-side.
+          const reputation = await getContributorReputation(user.id, getEnv());
+          if (reputation.gating) {
+            const blocked = claimBlockReason(reputation.tier, {
+              is_gold: Boolean(task.is_gold),
+              modality: task.modality as "image" | "video",
+            });
+            if (blocked) throw HttpError.forbidden(blocked);
+          }
+
+          const leaseExpiry = leaseExpiryFromNow();
           const { data, error } = await supabase
             .from("tasks")
             .update({

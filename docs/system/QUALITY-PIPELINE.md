@@ -100,7 +100,7 @@ its tests; nothing else calls the reviewer.
   contributor) upholds (→ `accepted`, payable) or dismisses (→ `rejected`, final). The code does
   not yet require the adjudicator to differ from the original reviewer — candidate hardening.
 
-## 6. Contributor reputation — F4 **[HHG, P1]**
+## 6. Contributor reputation — F4 **[live]**
 
 New module `backend/lib/reputation/`, pure scoring + one repository function.
 
@@ -116,8 +116,13 @@ acceptance_rate = accepted / (accepted + rejected + needs_revision), over the la
 | Trusted | Verified + ≥ 50 accepted, score ≥ 85 | + video tasks |
 | Reviewer | Trusted + admin promotion | review queue (role change stays an admin action) |
 
-- Recomputed after every gold result and every review decision; stored on
-  `contributor_profiles` (`reputation_score`, `tier`).
+- Computed on demand from existing data (`lib/reputation/service.ts`): gold passes/fails from
+  `code` reviews on gold submissions, outcomes from each non-gold task's current status. Cached on
+  `contributor_profiles` (`reputation_score`, `tier`; migration 012). Thresholds are env-configurable
+  (`REPUTATION_*`); `REPUTATION_GATING=off` disables gating.
+- **No one loses existing access:** migration 012 gives every contributor that exists at migration time
+  a `tier_floor` of `trusted` (a floor lifts the tier, never lowers it). If the migration is not yet
+  applied, gating switches itself off rather than demoting everyone.
 - Enforced in `GET /tasks/available` and `POST /tasks/{id}/claim` (server-side, not just hidden
   in the UI).
 - Shown on the contributor earnings page (F4.4).

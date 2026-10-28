@@ -50,6 +50,15 @@ const envSchema = z.object({
     .optional()
     .default("500")
     .transform((v) => parseInt(v, 10)),
+  // Contributor reputation (HHG F4). Gating applies to task listing and
+  // claiming; "off" lets every contributor see every task (as before F4).
+  REPUTATION_GATING: z.enum(["on", "off"]).optional().default("on"),
+  REPUTATION_VERIFIED_MIN_GOLD: z.coerce.number().int().min(0).optional().default(5),
+  REPUTATION_VERIFIED_MIN_GOLD_ACCURACY: z.coerce.number().min(0).max(100).optional().default(80),
+  REPUTATION_TRUSTED_MIN_ACCEPTED: z.coerce.number().int().min(0).optional().default(50),
+  REPUTATION_TRUSTED_MIN_SCORE: z.coerce.number().min(0).max(100).optional().default(85),
+  REPUTATION_REVIEWER_MIN_ACCEPTED: z.coerce.number().int().min(0).optional().default(200),
+  REPUTATION_REVIEWER_MIN_SCORE: z.coerce.number().min(0).max(100).optional().default(92),
   // Fraud control: submissions faster than this after claim are flagged for
   // human review (ASSUMPTIONS A9, OPEN_QUESTIONS OQ18).
   FAST_SUBMIT_THRESHOLD_SECONDS: z

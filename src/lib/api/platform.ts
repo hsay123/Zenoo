@@ -364,6 +364,32 @@ export const earningsSummarySchema = z.object({
       tx_hash: z.string().nullable(),
     }),
   ),
+  /* HHG F4 — additive; null/absent when the backend could not compute it. */
+  reputation: z
+    .object({
+      tier: z.enum(["new", "verified", "trusted", "reviewer"]),
+      earned_tier: z.enum(["new", "verified", "trusted", "reviewer"]),
+      tier_floor: z.enum(["new", "verified", "trusted", "reviewer"]).nullable(),
+      score: z.number().nullable(),
+      gold_accuracy: z.number().nullable(),
+      acceptance_rate: z.number().nullable(),
+      gating: z.boolean(),
+      stats: z.object({
+        goldPassed: z.number(),
+        goldFailed: z.number(),
+        accepted: z.number(),
+        rejected: z.number(),
+        revised: z.number(),
+      }),
+      next: z
+        .object({
+          tier: z.enum(["new", "verified", "trusted", "reviewer"]),
+          needs: z.array(z.string()),
+        })
+        .nullable(),
+    })
+    .nullable()
+    .optional(),
 });
 
 /**
