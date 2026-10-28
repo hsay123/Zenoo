@@ -97,6 +97,33 @@ const envSchema = z.object({
   // when it is empty, and it is merged with a built-in list of known-compromised
   // addresses that can never be removed from the environment alone.
   SETTLEMENT_FORBIDDEN_ADDRESS: z.string().optional(),
+  // ── Buyer funding (HHG F2) ──
+  // Zeno's commission as a share of what the buyer pays, in basis points
+  // (2000 = 20%: the contributor keeps 80% of the buyer price). The escrow
+  // holds only contributor payouts; the fee is charged on top of them.
+  ZENO_FEE_BPS: z
+    .string()
+    .optional()
+    .default("2000")
+    .refine((v) => /^\d+$/.test(v.trim()) && parseInt(v, 10) < 10_000, "ZENO_FEE_BPS must be 0-9999")
+    .transform((v) => parseInt(v.trim(), 10)),
+  // Platform treasury signer that funds escrow after a verified card/UPI
+  // payment. Server-only; must differ from the escrow owner and the
+  // settlement relayer. Unset: paid jobs wait as "paid, awaiting funding".
+  TREASURY_PRIVATE_KEY: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v || /^0x[0-9a-fA-F]{64}$/.test(v),
+      "TREASURY_PRIVATE_KEY must be a 32-byte 0x-prefixed private key",
+    ),
+  // Dodo Payments (card/UPI). All three must be set for the card option to
+  // appear. Only test mode is supported this week (no real funds).
+  DODO_API_KEY: z.string().optional(),
+  DODO_WEBHOOK_SECRET: z.string().optional(),
+  // A pay-what-you-want product created in the Dodo dashboard; each checkout
+  // overrides its amount with the job's total.
+  DODO_PRODUCT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
