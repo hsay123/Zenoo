@@ -3,8 +3,17 @@
 > **HHG 2026 (from 2026-10-28): settlement moved to USDC on Base Sepolia.**
 > The escrow is now ERC-20 (`SETTLEMENT_ABI_VERSION` 3) and the backend reads
 > `CHAIN_ID` (84532), `RPC_URL` and `USDC_ADDRESS`; see `contracts/README.md`
-> and `docs/RUNBOOK.md` §2. No Base Sepolia escrow has been deployed yet, so
-> every environment is on mock settlement (`is_mock = true`). The Monad-testnet
+> and `docs/RUNBOOK.md` §2. Hosted environments are still on mock settlement until their env is updated.
+>
+> **Deployed 2026-10-29 (Base Sepolia, chain 84532):** USDC `JobEscrow` (ABI v3) at
+> [`0xa4B1053d0878Ae2b86640A547E125BEB20456962`](https://sepolia.basescan.org/address/0xa4B1053d0878Ae2b86640A547E125BEB20456962),
+> deploy tx [`0x4e46e3cf…2d5e0e5f`](https://sepolia.basescan.org/tx/0x4e46e3cf1927a08dfcb63ff33a14bfc32d10c3ea24fa209ace5bdf992d5e0e5f).
+> Owner `0x6E15Be04e1657DafcCcDcE3c97a028ea8d6e8cE3`, relayer
+> `0x0FB2Ef2e0440ceE42c0a7A5160801Af554E51569`, token Circle test USDC
+> `0x036CbD53842c5426634e7929541eC2318f3dCF7e`; treasury signer
+> `0xDe089C13bc56460085b3c43Db4C9ccA18BBA7A6B`. All three are fresh testnet-only keys.
+> Local `npm run settlement:preflight`: all 12 checks PASS (`mode=chain`). Source not yet
+> verified on Basescan (needs an Etherscan API key). The Monad-testnet
 > deployment and payout described below (§4.2) are **prior work**, kept as a
 > historical record: that ABI v2 escrow is refused by the current preflight.
 > `MONAD_RPC_URL` is still read as a fallback alias, so existing `zeno-api`
