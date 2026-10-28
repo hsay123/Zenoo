@@ -7,3 +7,4 @@ broadcast/
 .env.local
 # Dependency lock for soldeer, if used
 dependencies/
+.addresses.txt
