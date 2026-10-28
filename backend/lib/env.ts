@@ -27,6 +27,12 @@ const envSchema = z.object({
     .optional()
     .default("0.75")
     .transform((v) => parseFloat(v)),
+  // Real AI first pass (HHG F3). Used only when ANTHROPIC_API_KEY is set and
+  // AI_REVIEWER is not "mock"; otherwise the MockAiReviewer stays in effect.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  AI_REVIEWER: z.enum(["auto", "mock"]).optional().default("auto"),
+  AI_REVIEW_MODEL: z.string().optional().default("claude-sonnet-5-5"),
+  AI_REVIEW_EFFORT: z.enum(["low", "medium", "high"]).optional().default("medium"),
   // Settlement
   LEASE_MINUTES: z
     .string()

@@ -49,7 +49,12 @@ flag; fewer than 5 completed tasks; gold accuracy below 80 %. Otherwise AI lane.
 
 **[live]** `MockAiReviewer` — deterministic heuristics, `rubric_version = "mock-v1"`.
 
-**[HHG, F3]** real model behind the same contract:
+**[live, F3]** `ClaudeAiReviewer` (`lib/review/claudeAiReviewer.ts`) — Claude Sonnet 5.5
+(`claude-sonnet-5-5`, effort `medium` by default) behind the same contract, selected by
+`lib/review/aiReviewer.ts` only when `ANTHROPIC_API_KEY` is set and `AI_REVIEWER` is not `mock`.
+The model call runs **after** the submit response (`next/server` `after`), with a 45 s timeout;
+the auto-applied status change is conditional on the task still being `submitted`, so a human
+who decides first always wins. Rubric version: `zeno-image-review-v1:<model>`.
 
 ```ts
 interface AiReviewer {
@@ -77,7 +82,11 @@ Design rules:
   shown to the human reviewer.
 - **Config:** provider key server-side only; `AI_REVIEWER=mock|model` selects the
   implementation, so tests and keyless environments keep the mock.
-- **Model choice:** open (PRD §9 Q4) — decide on cost per image before wiring.
+- **Model choice:** Claude Sonnet 5.5 (PRD §9 Q4 decided 2026-10-29). Rough cost
+  ≈ $0.005–0.01 per reviewed image at `medium` effort (est.).
+- **Privacy:** the image is downloaded server-side through a 60 s signed URL and sent to
+  Anthropic's API as base64; the signed URL itself never leaves the backend. Images over 5 MB or
+  of unsupported types go to a human.
 
 The interface change from sync to async touches `review/service.ts` (`applyAutoRouting`) and
 its tests; nothing else calls the reviewer.

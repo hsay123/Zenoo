@@ -20,6 +20,10 @@ import { consume } from "@/lib/rateLimit";
 import { submitAnnotation } from "@/lib/tasks/submissions";
 import type { Submission } from "@/src/types/api";
 
+// The real AI first pass runs after the response (next/server `after`) and is
+// bounded by this route's duration; the submit itself returns immediately.
+export const maxDuration = 60;
+
 const SUBMIT_RATE = { points: 20, duration: 60 };
 
 export async function OPTIONS() {
