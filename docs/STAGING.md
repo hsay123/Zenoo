@@ -1,5 +1,15 @@
 # Staging deployment — Zeno
 
+> **HHG 2026 (from 2026-10-28): settlement moved to USDC on Base Sepolia.**
+> The escrow is now ERC-20 (`SETTLEMENT_ABI_VERSION` 3) and the backend reads
+> `CHAIN_ID` (84532), `RPC_URL` and `USDC_ADDRESS`; see `contracts/README.md`
+> and `docs/RUNBOOK.md` §2. No Base Sepolia escrow has been deployed yet, so
+> every environment is on mock settlement (`is_mock = true`). The Monad-testnet
+> deployment and payout described below (§4.2) are **prior work**, kept as a
+> historical record: that ABI v2 escrow is refused by the current preflight.
+> `MONAD_RPC_URL` is still read as a fallback alias, so existing `zeno-api`
+> settings keep loading; a Monad RPC simply fails the chain check.
+
 Status: **app layer deployed and verified on Vercel; real settlement has been
 demonstrated end-to-end on Monad testnet against the hardened escrow, but the
 Vercel `zeno-api` project has not yet been switched to chain settlement.**

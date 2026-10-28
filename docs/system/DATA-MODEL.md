@@ -115,9 +115,9 @@ re-broadcasts a row that already has a hash.
 
 | Layer | Form | Rule |
 | --- | --- | --- |
-| API / DB | decimal string, ≤ 12 integer digits, ≤ 6 decimals, > 0 | `normaliseMonAmount` → **[HHG]** `normaliseUsdcAmount` |
+| API / DB | decimal string, ≤ 12 integer digits, ≤ 6 decimals, > 0 | `normaliseMonAmount` (historical name; validates USDC) |
 | Backend math | `bigint` micro-units | `settlement/money.ts` (`sumDecimalStrings`, `withinBudget`) |
-| Chain | `uint256` base units | `parseUnits(amount, 6)` **[HHG]**; `1 USDC = 1_000_000` |
-| UI | `"1.5 USDC"` | `formatUsdc` **[HHG]**; never shown as fiat |
+| Chain | `uint256` base units | `toTokenUnits` = `parseUnits(amount, 6)`; `1 USDC = 1_000_000` |
+| UI | `"1.5 USDC"` | `formatUsdc`; never shown as fiat |
 
 `Number()` is never used on money.

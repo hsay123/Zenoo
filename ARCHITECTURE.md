@@ -41,7 +41,7 @@ flowchart LR
 
   subgraph External
     PV[Privy<br/>auth + embedded wallets]
-    CH["Base Sepolia → Base<br/>JobEscrow + USDC [HHG]<br/>(Monad testnet today)"]
+    CH["Base Sepolia<br/>JobEscrow + USDC"]
     AI["Vision model<br/>AI first pass [HHG]"]
     DD["Dodo Payments<br/>card / UPI [HHG]"]
   end
@@ -98,9 +98,11 @@ a service in `backend/lib/**` → `ok(...)` envelope.
 | `validation/` | zod schemas for every request body |
 | `idempotency.ts`, `rateLimit.ts`, `hash.ts`, `storage.ts` | Cross-cutting helpers |
 
-**[HHG]** additions: `lib/funding/` (wallet + Dodo funding), `lib/review/aiReviewer.ts`
-(real model), `lib/reputation/` (score + tier), `lib/settlement/network.ts` (chain from env),
-`app/api/payments/dodo/*` (checkout + webhook), `app/api/demo/royalty` (F5).
+**[live, F1]** `lib/settlement/network.ts` (chain from env, 6-decimal USDC units) and
+`lib/settlement/funding.ts` (JobFunded verification).
+**[HHG]** planned: `lib/funding/` (Dodo funding), `lib/review/aiReviewer.ts` (real model),
+`lib/reputation/` (score + tier), `app/api/payments/dodo/*` (checkout + webhook),
+`app/api/demo/royalty` (F5).
 
 ### 2.3 Data — Supabase **[live]**
 
@@ -113,7 +115,7 @@ with a 300 s TTL. See `DATA-MODEL.md`.
 
 | Contract | Status | Purpose |
 | --- | --- | --- |
-| `JobEscrow.sol` | **[live]** native MON → **[HHG]** ERC-20 USDC | Per-job escrow; relayer-only settle; one payout per task; budget cap; close-before-withdraw |
+| `JobEscrow.sol` | **[live]** ERC-20 USDC, ABI v3 (was native MON) | Per-job escrow; relayer-only settle; one payout per task; budget cap; close-before-withdraw |
 | `RoyaltySplitter.sol` | **[HHG, P2 demo]** | Split one USDC payment 50 / 30 / 20 (Zeno / data owner / contributors) |
 
 ## 3. Core flow (the loop we demo)
@@ -170,7 +172,7 @@ These hold across every layer and are tested at each one. Breaking one is a P0 b
    tx receipt *and* a decoded `TaskSettled` matching job, task, payee, amount and hash.
 5. **No floating-point money.** Amounts are decimal strings (`NUMERIC(18,6)`), summed in
    micro-units (`settlement/money.ts`), and converted at the chain boundary with
-   `parseUnits(amount, 6)` **[HHG]** (today `parseEther`).
+   `parseUnits(amount, 6)` (`lib/settlement/network.ts`).
 6. **Settlement fails closed.** Real settlement runs only when env is complete *and* the
    preflight passes; otherwise the mock is used and the UI labels it as mock.
 7. **Buyer data stays private.** Contributors see only tasks they have leased, through
@@ -184,7 +186,7 @@ These hold across every layer and are tested at each one. Breaking one is a P0 b
 | Frontend | Vercel (`zeno-web-app.vercel.app`) | root `.env.example` |
 | Backend | Render (`render.yaml`, region singapore) | `backend/.env.example` |
 | Database + storage | Supabase | migrations 001–010 |
-| Contracts | Monad testnet today → Base Sepolia **[HHG]** | `contracts/foundry.toml`, `script/*.s.sol` |
+| Contracts | Base Sepolia (USDC escrow not yet deployed; Monad deployment is prior work) | `contracts/foundry.toml`, `script/*.s.sol` |
 
 Environment for the chain **[HHG]**: `CHAIN_ID` (84532 Base Sepolia; 8453 Base gated),
 `RPC_URL`, `JOB_ESCROW_ADDRESS`, `USDC_ADDRESS`, `SETTLEMENT_PRIVATE_KEY` (relayer),

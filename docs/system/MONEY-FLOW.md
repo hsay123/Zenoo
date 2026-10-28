@@ -7,7 +7,7 @@
 
 ## 1. Chain and currency
 
-| | Today (prior work) | HHG target |
+| | Prior work (Monad build) | Now (HHG, F1 done) |
 | --- | --- | --- |
 | Chain | Monad testnet (10143) | Base Sepolia (84532) for dev and the demo; Base (8453) gated by the safety gate |
 | Currency | native MON, 18 decimals | USDC (ERC-20), **6 decimals** |
@@ -26,7 +26,7 @@
 
 The constructor rejects owner == relayer. The owner is never a relayer by default.
 
-### 2.2 Interface **[HHG]**
+### 2.2 Interface
 
 ```solidity
 constructor(address owner, address relayer, IERC20 token);   // token immutable, non-zero
@@ -52,7 +52,7 @@ event TaskSettled(bytes32 indexed jobId, bytes32 indexed taskId, address indexed
 4. The first funder is the buyer; any other address topping up reverts `NotBuyer`.
 5. No funding after close; no withdrawal while open.
 6. Effects before interactions; `nonReentrant` on `settle` and `withdraw`.
-7. **[HHG]** Token calls check return data (a token returning `false` reverts); `fundJob`
+7. Token calls check return data (a token returning `false` reverts); `fundJob`
    credits `amount` only after `transferFrom` succeeds.
 8. Zero amounts and zero addresses revert.
 
@@ -145,17 +145,18 @@ Recovery: `POST /api/settlement/reconcile` re-verifies `submitted` rows by hash.
 ### 5.1 Service selection and preflight
 
 Real settlement is used only when `JOB_ESCROW_ADDRESS`, `RPC_URL`, `SETTLEMENT_PRIVATE_KEY`
-(and **[HHG]** `CHAIN_ID`, `USDC_ADDRESS`) are set **and** `runSettlementPreflight` passes:
+(plus `USDC_ADDRESS` and an allowed `CHAIN_ID`) are set **and** `runSettlementPreflight` passes:
 
 | Check | Fails when |
 | --- | --- |
 | `configured` | any setting missing |
 | `signer` | key is invalid |
-| `chain` | RPC chain id ≠ `CHAIN_ID`, or `CHAIN_ID` not in the allow-list (84532 only this week) |
+| `chain_allowed` | `CHAIN_ID` not in the allow-list (84532 only this week) |
+| `chain` | RPC chain id ≠ `CHAIN_ID` |
 | `escrow_code` | no bytecode at the escrow address |
 | `owner` / auth model | signer is owner, or signer is not a relayer |
-| `escrow_abi_version` | ≠ 3 **[HHG]** (rejects the old MON escrow) |
-| `token` **[HHG]** | `escrow.token() ≠ USDC_ADDRESS` or `decimals() ≠ 6` |
+| `escrow_abi_version` | ≠ 3 (rejects the old MON escrow) |
+| `token` / `token_decimals` | `escrow.token() ≠ USDC_ADDRESS`, or `decimals() ≠ 6` |
 | `forbidden` | signer or owner is in the deny-list, or the deny-list is empty |
 
 Otherwise `MockSettlementService` is used: deterministic mock hash, `is_mock = true`, labelled
@@ -170,9 +171,9 @@ calls it from the treasury on Base Sepolia. Labelled **"roadmap demo"** in UI an
 
 ## 7. Decimal safety checklist (PRD risk #1)
 
-- [ ] Contract tests use 6-decimal amounts (`250_000` = 0.25 USDC), never `ether`.
-- [ ] No `parseEther` / `formatEther` left in backend or frontend (`grep` in CI).
-- [ ] Fund route returns `amount_units` from `parseUnits(budget, 6)`, not `Number × 1e18`.
-- [ ] Settlement match compares `parseUnits(reward, 6)` to the event amount.
-- [ ] UI formats with `formatUsdc` and never with fiat symbols.
+- [x] Contract tests use 6-decimal amounts (`250_000` = 0.25 USDC), never `ether`.
+- [x] No `parseEther` / `formatEther` left in backend or frontend (CI grep still to add).
+- [x] Fund route returns `amount_units` from `parseUnits(budget, 6)`, not `Number × 1e18`.
+- [x] Settlement match compares `parseUnits(reward, 6)` to the event amount.
+- [x] UI formats with `formatUsdc` and never with fiat symbols.
 - [ ] e2e: fund 1 USDC, settle 0.04 USDC, assert contributor balance delta = 40 000 units.
