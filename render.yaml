@@ -1,0 +1,68 @@
+# Render Blueprint — backend API only.
+#
+# The frontend is a separate Vercel project (repo root). This file deploys
+# `backend/` as one Node web service. Secrets use `sync: false`, meaning the
+# value is set in the Render dashboard and never lives in git.
+#
+# Create: Render Dashboard → New → Blueprint → pick this repo (or `render
+# services` with the CLI / `create_web_service` via the Render MCP).
+
+services:
+  - type: web
+    name: motivelabs-api
+    runtime: node
+    plan: free # free plan spins down after ~15 min idle; first hit is slow
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22.23.2"
+
+      # ── Supabase (project sfebambrdcfqrdmetflw) ──
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: media
+
+      # ── Privy ──
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      - key: PRIVY_VERIFICATION_KEY
+        sync: false
+
+      # ── CORS: exact staging frontend origin (Vercel URL) ──
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+      - key: DEV_AUTH_BYPASS
+        value: "false"
+
+      # ── Domain limits (tune only if needed) ──
+      - key: AI_CONFIDENCE_THRESHOLD
+        value: "0.7"
+      - key: LEASE_MINUTES
+        value: "30"
+      - key: GOLD_IOU_THRESHOLD
+        value: "0.5"
+      - key: GOLD_SEGMENT_MS_TOLERANCE
+        value: "500"
+      - key: FAST_SUBMIT_THRESHOLD_SECONDS
+        value: "30"
+
+      # ── Real settlement (set all three after the contract is deployed) ──
+      # While JOB_ESCROW_ADDRESS is empty the API uses MockSettlementService
+      # and every receipt stays is_mock = true.
+      - key: MONAD_RPC_URL
+        value: https://testnet-rpc.monad.xyz
+      - key: JOB_ESCROW_ADDRESS
+        sync: false
+      - key: SETTLEMENT_PRIVATE_KEY
+        sync: false

@@ -1,0 +1,18 @@
+# Never upload local secrets or unrelated trees to Vercel.
+# (The frontend project builds only the Next.js app at the repo root.)
+.env
+.env.*
+node_modules
+.next
+tsconfig.tsbuildinfo
+.agents
+backend
+contracts
+docs
+e2e
+playwright
+playwright-report
+test-results
+certificates
+"moativeLab Assets"
+skills-lock.json

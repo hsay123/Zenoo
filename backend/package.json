@@ -1,0 +1,41 @@
+{
+  "name": "backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint app lib scripts src --ext .ts,.tsx",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "seed": "tsx scripts/seed.ts",
+    "settlement:preflight": "tsx scripts/settlement-preflight.ts"
+  },
+  "dependencies": {
+    "@privy-io/server-auth": "^1.32.5",
+    "@supabase/supabase-js": "^2.117.3",
+    "dotenv": "^16.6.1",
+    "jose": "^6.2.12",
+    "next": "16.4.0",
+    "rate-limiter-flexible": "^5.0.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "uuid": "^11.1.1",
+    "viem": "^2.57.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/coverage-v8": "^1.6.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^1.6.1"
+  }
+}

@@ -1,0 +1,9 @@
+# Foundry build artifacts / local state
+out/
+cache/
+broadcast/
+# Local secret files (never commit)
+.env
+.env.local
+# Dependency lock for soldeer, if used
+dependencies/

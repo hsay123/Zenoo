@@ -1,0 +1,284 @@
+### PhysicalData Network Backend – Ready-to-Run HTTP Requests
+### Use with VS Code REST Client extension or any compatible tool.
+### Set @base to your running backend URL.
+### For DEV auth bypass, use x-dev-user-id header (DEV_AUTH_BYPASS=true required).
+
+@base = http://localhost:3000
+
+# ── Seed user IDs (from npm run seed) ──────────────────────────────────────
+@admin        = 5eed0000-0000-4000-8000-000000000001
+@buyer        = 5eed0000-0000-4000-8000-000000000002
+@contributor1 = 5eed0000-0000-4000-8000-000000000003
+@contributor2 = 5eed0000-0000-4000-8000-000000000004
+@reviewer     = 5eed0000-0000-4000-8000-000000000005
+
+# ── Seed resource IDs ────────────────────────────────────────────────────────
+@imageJobId   = 5eed0000-0000-4000-8000-000000000030
+@videoJobId   = 5eed0000-0000-4000-8000-000000000031
+@imageTaskId  = 5eed0000-0000-4000-8000-000000000040
+@videoTaskId  = 5eed0000-0000-4000-8000-000000000050
+@projectId    = 5eed0000-0000-4000-8000-000000000010
+
+###############################################################################
+# HEALTH
+###############################################################################
+
+### Health check (public, no auth)
+GET {{base}}/api/health
+
+###############################################################################
+# AUTH – GET /api/me
+###############################################################################
+
+### Get current user (as buyer)
+GET {{base}}/api/me
+x-dev-user-id: {{buyer}}
+
+### Get current user (as contributor)
+GET {{base}}/api/me
+x-dev-user-id: {{contributor1}}
+
+### Get current user (as reviewer)
+GET {{base}}/api/me
+x-dev-user-id: {{reviewer}}
+
+###############################################################################
+# JOBS
+###############################################################################
+
+### Create a draft image job
+POST {{base}}/api/jobs
+Content-Type: application/json
+x-dev-user-id: {{buyer}}
+
+{
+  "project_id": "{{projectId}}",
+  "title": "My New Image Job",
+  "description": "Label all cups and blocks.",
+  "modality": "image",
+  "reward_per_task": 1.5,
+  "budget": 50.0,
+  "deadline": "2026-12-01T00:00:00.000Z",
+  "rubric": { "accepted_iou": 0.5 },
+  "label_list": ["cup", "red_block"],
+  "schema_version_id": "a0000000-0000-0000-0000-000000000001"
+}
+
+### List jobs (buyer sees own jobs)
+GET {{base}}/api/jobs
+x-dev-user-id: {{buyer}}
+
+### Get a specific job
+GET {{base}}/api/jobs/{{imageJobId}}
+x-dev-user-id: {{buyer}}
+
+### Publish an image job
+POST {{base}}/api/jobs/{{imageJobId}}/publish
+x-dev-user-id: {{buyer}}
+
+###############################################################################
+# TASKS
+###############################################################################
+
+### List available tasks (contributor)
+GET {{base}}/api/tasks/available
+x-dev-user-id: {{contributor1}}
+
+### List available tasks filtered by job
+GET {{base}}/api/tasks/available?job_id={{imageJobId}}
+x-dev-user-id: {{contributor1}}
+
+### Get a specific task (includes signed media URL)
+GET {{base}}/api/tasks/{{imageTaskId}}
+x-dev-user-id: {{contributor1}}
+
+### Claim a task (idempotent)
+POST {{base}}/api/tasks/{{imageTaskId}}/claim
+x-dev-user-id: {{contributor1}}
+Idempotency-Key: claim-{{imageTaskId}}-test-001
+
+### Autosave a draft (image)
+PUT {{base}}/api/tasks/{{imageTaskId}}/draft
+Content-Type: application/json
+x-dev-user-id: {{contributor1}}
+
+{
+  "task_id": "{{imageTaskId}}",
+  "asset_id": "5eed0000-0000-4000-8000-000000000020",
+  "schema_version": "image-boxes-v1",
+  "boxes": [
+    { "x": 100, "y": 80, "w": 90, "h": 110, "class": "cup", "confidence": 4 }
+  ]
+}
+
+### Submit an image annotation (valid)
+POST {{base}}/api/tasks/{{imageTaskId}}/submit
+Content-Type: application/json
+x-dev-user-id: {{contributor1}}
+Idempotency-Key: submit-{{imageTaskId}}-test-001
+
+{
+  "task_id": "{{imageTaskId}}",
+  "asset_id": "5eed0000-0000-4000-8000-000000000020",
+  "schema_version": "image-boxes-v1",
+  "boxes": [
+    { "x": 100, "y": 80, "w": 90, "h": 110, "class": "cup", "confidence": 4 },
+    { "x": 300, "y": 210, "w": 40, "h": 40, "class": "red_block", "confidence": 5 }
+  ],
+  "answers": { "grasp_success": "yes" }
+}
+
+### Submit an INVALID image annotation (box out of bounds – expect 422)
+POST {{base}}/api/tasks/{{imageTaskId}}/submit
+Content-Type: application/json
+x-dev-user-id: {{contributor1}}
+Idempotency-Key: submit-{{imageTaskId}}-invalid-001
+
+{
+  "task_id": "{{imageTaskId}}",
+  "asset_id": "5eed0000-0000-4000-8000-000000000020",
+  "schema_version": "image-boxes-v1",
+  "boxes": [
+    { "x": 1200, "y": 700, "w": 200, "h": 200, "class": "cup", "confidence": 3 }
+  ]
+}
+
+### Autosave a draft (video)
+PUT {{base}}/api/tasks/{{videoTaskId}}/draft
+Content-Type: application/json
+x-dev-user-id: {{contributor2}}
+
+{
+  "task_id": "{{videoTaskId}}",
+  "asset_id": "5eed0000-0000-4000-8000-000000000021",
+  "schema_version": "action-segments-v1",
+  "segments": [
+    { "start_ms": 0, "end_ms": 1200, "action_label": "reach", "outcome": "success", "confidence": 4 }
+  ]
+}
+
+### Submit a video annotation (valid)
+POST {{base}}/api/tasks/{{videoTaskId}}/submit
+Content-Type: application/json
+x-dev-user-id: {{contributor2}}
+Idempotency-Key: submit-{{videoTaskId}}-test-001
+
+{
+  "task_id": "{{videoTaskId}}",
+  "asset_id": "5eed0000-0000-4000-8000-000000000021",
+  "schema_version": "action-segments-v1",
+  "segments": [
+    { "start_ms": 0,    "end_ms": 1200,  "action_label": "reach", "outcome": "success",  "confidence": 4 },
+    { "start_ms": 1200, "end_ms": 3400,  "action_label": "grasp", "outcome": "success",  "confidence": 5 },
+    { "start_ms": 3400, "end_ms": 4000,  "action_label": "lift",  "outcome": "success",  "confidence": 4 },
+    { "start_ms": 4000, "end_ms": 11000, "action_label": "write", "outcome": "success",  "confidence": 4 },
+    { "start_ms": 11000,"end_ms": 12000, "action_label": "place", "outcome": "success",  "confidence": 5 }
+  ]
+}
+
+### Submit INVALID video (overlapping segments – expect 422)
+POST {{base}}/api/tasks/{{videoTaskId}}/submit
+Content-Type: application/json
+x-dev-user-id: {{contributor2}}
+Idempotency-Key: submit-{{videoTaskId}}-invalid-001
+
+{
+  "task_id": "{{videoTaskId}}",
+  "asset_id": "5eed0000-0000-4000-8000-000000000021",
+  "schema_version": "action-segments-v1",
+  "segments": [
+    { "start_ms": 0,   "end_ms": 2000, "action_label": "reach", "outcome": "success", "confidence": 3 },
+    { "start_ms": 1500,"end_ms": 3000, "action_label": "grasp", "outcome": "success", "confidence": 3 }
+  ]
+}
+
+###############################################################################
+# REVIEW
+###############################################################################
+
+### Get review queue
+GET {{base}}/api/review/queue
+x-dev-user-id: {{reviewer}}
+
+### Accept a submission (replace :submissionId with a real UUID after submit)
+# POST {{base}}/api/reviews/:submissionId/decision
+# Content-Type: application/json
+# x-dev-user-id: {{reviewer}}
+#
+# {
+#   "decision": "accept",
+#   "reason_code": "ACCEPTED",
+#   "confidence": 0.95,
+#   "notes": "All objects correctly labelled."
+# }
+
+### Reject a submission
+# POST {{base}}/api/reviews/:submissionId/decision
+# Content-Type: application/json
+# x-dev-user-id: {{reviewer}}
+#
+# {
+#   "decision": "reject",
+#   "reason_code": "MISSING_OBJECTS",
+#   "confidence": 0.88,
+#   "notes": "The blue block was not labelled."
+# }
+
+###############################################################################
+# APPEALS
+###############################################################################
+
+### Appeal a rejection (replace :submissionId)
+# POST {{base}}/api/submissions/:submissionId/appeal
+# Content-Type: application/json
+# x-dev-user-id: {{contributor1}}
+#
+# {
+#   "reason": "I believe the box was correct. The block was partially occluded."
+# }
+
+###############################################################################
+# SETTLEMENT
+###############################################################################
+
+### Trigger settlement (admin only, replace IDs)
+# POST {{base}}/api/settlement/accept
+# Content-Type: application/json
+# x-dev-user-id: {{admin}}
+# Idempotency-Key: settle-task-001
+#
+# {
+#   "task_id": "uuid",
+#   "submission_id": "uuid"
+# }
+
+###############################################################################
+# RECEIPTS
+###############################################################################
+
+### Get a receipt (public, replace :id)
+# GET {{base}}/api/receipts/:id
+
+###############################################################################
+# EARNINGS
+###############################################################################
+
+### Get contributor earnings
+GET {{base}}/api/earnings
+x-dev-user-id: {{contributor1}}
+
+###############################################################################
+# EXPORT
+###############################################################################
+
+### Export accepted labels as COCO JSON
+GET {{base}}/api/jobs/{{imageJobId}}/export?format=json
+x-dev-user-id: {{buyer}}
+
+### Export as JSONL
+GET {{base}}/api/jobs/{{videoJobId}}/export?format=jsonl
+x-dev-user-id: {{buyer}}
+
+### Export as CSV
+GET {{base}}/api/jobs/{{videoJobId}}/export?format=csv
+x-dev-user-id: {{buyer}}

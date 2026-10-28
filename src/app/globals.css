@@ -1,0 +1,356 @@
+@import "tailwindcss";
+
+/*
+  Zeno — Encord-inspired design tokens
+  ------------------------------------------------------------------
+  High-contrast, dynamic aesthetic: Pure White, Pure Black, Bright Lime Green.
+  Clean geometric sans-serif (Inter), bold weights, tight letter-spacing.
+  Bento Box grid system for feature cards.
+*/
+
+@theme {
+  /* ---- Typography -------------------------------------------------- */
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-code), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Fluid display sizes — bold, tight tracking for Encord-style headings */
+  --text-display-xl: clamp(3rem, 7vw, 6.5rem);
+  --text-display-xl--line-height: 0.95;
+  --text-display-xl--letter-spacing: -0.045em;
+  --text-display-xl--font-weight: 700;
+
+  --text-display-lg: clamp(2.25rem, 4.5vw, 4rem);
+  --text-display-lg--line-height: 1.0;
+  --text-display-lg--letter-spacing: -0.04em;
+  --text-display-lg--font-weight: 700;
+
+  --text-display-md: clamp(1.75rem, 3vw, 2.75rem);
+  --text-display-md--line-height: 1.05;
+  --text-display-md--letter-spacing: -0.03em;
+  --text-display-md--font-weight: 700;
+
+  --text-display-sm: clamp(1.5rem, 2vw, 2rem);
+  --text-display-sm--line-height: 1.15;
+  --text-display-sm--letter-spacing: -0.02em;
+  --text-display-sm--font-weight: 600;
+
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.4;
+  --text-title--letter-spacing: -0.01em;
+  --text-title--font-weight: 600;
+
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.6;
+  --text-body-lg--font-weight: 400;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.55;
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+
+  --text-eyebrow: 0.75rem;
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.1em;
+  --text-eyebrow--font-weight: 600;
+
+  /* ---- Surfaces & Ink — Encord High Contrast ----------------------- */
+  --color-canvas: #FFFFFF;        /* Pure White */
+  --color-surface: #FFFFFF;       /* Pure White */
+  --color-surface-muted: #F5F5F5; /* Off-white for subtle contrast */
+  --color-surface-sunken: #EAEAEA;
+
+  --color-ink: #000000;           /* Pure Black */
+  --color-ink-2: #1A1A1A;         /* Near Black */
+  --color-ink-3: #333333;         /* Dark Charcoal */
+  --color-ink-4: #666666;         /* Medium Grey */
+
+  --color-line: #E0E0E0;          /* Light Grey borders */
+  --color-line-strong: #CCCCCC;   /* Stronger borders */
+  --color-line-inverse: rgba(0, 0, 0, 0.12);
+
+  /* ---- Lime Green Accent (Encord) ---------------------------------- */
+  --color-accent-50:  #F4FFF0;
+  --color-accent-100: #E0FFD9;
+  --color-accent-200: #C8FFB3;
+  --color-accent-300: #A0FF80;
+  --color-accent-400: #80FF40;
+  --color-accent-500: #66FF00;
+  --color-accent-600: #CCFF00;    /* Primary Lime Green - #CCFF00 */
+  --color-accent-700: #A3CC00;
+  --color-accent-800: #85A300;
+  --color-accent-900: #688000;
+  --color-accent-950: #334000;
+
+  /* ---- Night (dark bands, footers, media wells) -------------------- */
+  --color-night: #000000;         /* Pure Black for dark sections */
+  --color-night-2: #111111;
+  --color-night-3: #1A1A1A;
+  --color-night-ink: #FFFFFF;     /* Pure White on dark */
+  --color-night-ink-2: rgba(255, 255, 255, 0.8);
+  --color-night-ink-3: rgba(255, 255, 255, 0.5);
+
+  /* ---- Status ------------------------------------------------------ */
+  --color-success-bg: #F0FFF4;
+  --color-success-fg: #166534;
+  --color-success-line: #BBF7D0;
+
+  --color-pending-bg: #FFFDF4;
+  --color-pending-fg: #854D0E;
+  --color-pending-line: #FDE047;
+
+  --color-danger-bg: #FFF1F2;
+  --color-danger-fg: #991B1B;
+  --color-danger-line: #FCA5A5;
+
+  --color-info-bg: #F0F9FF;
+  --color-info-fg: #0369A1;
+  --color-info-line: #BAE6FD;
+
+  /* ---- Radii ------------------------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 16px;       /* Bento box radius */
+  --radius-xl: 24px;       /* Large bento box radius */
+  --radius-2xl: 32px;
+
+  /* ---- Motion ------------------------------------------------------ */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ---- Layout ------------------------------------------------------ */
+  --spacing-container: 80rem;      /* 1280px content max width */
+  --spacing-container-wide: 90rem; /* 1440px */
+}
+
+/* ==================================================================
+   Base
+   ================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-600); /* Lime Green selection */
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-600);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Tabular figures wherever we show metrics, counts or timecodes. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+}
+
+/* ==================================================================
+   Reusable composites
+   ================================================================== */
+
+@layer components {
+  /* Eyebrow / kicker label used above section headings. */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-eyebrow);
+    line-height: 1.2;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--color-ink-3);
+  }
+
+  /* Hairline-divided link, used in dropdowns and footers. */
+  .link-quiet {
+    color: var(--color-ink-2);
+    transition: color 0.15s var(--ease-out-soft);
+  }
+  .link-quiet:hover {
+    color: var(--color-ink);
+  }
+
+  /* Fine, low-contrast grid paper used behind media wells. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* A measured amount of blur is applied on sticky chrome. */
+  .backdrop-chrome {
+    background-color: color-mix(in srgb, var(--color-canvas) 90%, transparent);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+  }
+
+  /* Encord-style Lime Green Primary Button */
+  .btn-primary-encord {
+    background-color: #CCFF00;
+    color: #000000;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+  }
+  .btn-primary-encord:hover {
+    background-color: #B8E600;
+    transform: translateY(-1px);
+  }
+  .btn-primary-encord:active {
+    background-color: #A3CC00;
+    transform: translateY(0);
+  }
+
+  /* Lime Green Text Link (Encord style) */
+  .link-lime {
+    color: #CCFF00;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+  .link-lime:hover {
+    color: #B8E600;
+  }
+
+  /* Logo Marquee Item - grayscale filter for monochrome logos */
+  .logo-marquee-item {
+    filter: grayscale(100%) contrast(120%);
+  }
+}
+
+/* Bento Box Card - Encord Style (as utility for Tailwind v4) */
+@utility bento-card {
+  background-color: #F9F9FA;
+  border-radius: 24px;
+  border: 1px solid #E0E0E0;
+  padding: 32px;
+  transition: border-color 0.2s ease;
+}
+
+@utility bento-card-hover {
+  border-color: #CCCCCC;
+}
+
+@utility bento-card-large {
+  grid-column: span 2;
+}
+
+@utility bento-card-full {
+  grid-column: 1 / -1;
+}
+
+@layer utilities {
+  /* Constrain long-form copy to a comfortable measure. */
+  .measure {
+    max-width: 62ch;
+  }
+  .measure-tight {
+    max-width: 46ch;
+  }
+
+  /* Hide scrollbars on horizontal, keyboard-scrollable rails. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Entrance animation — disabled under reduced-motion below. */
+  .rise {
+    animation: rise 0.7s var(--ease-out-soft) both;
+  }
+  .rise-2 {
+    animation: rise 0.7s var(--ease-out-soft) 0.08s both;
+  }
+  .rise-3 {
+    animation: rise 0.7s var(--ease-out-soft) 0.16s both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Logo Marquee Animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 20s linear infinite;
+}
+
+.logo-marquee-item {
+  filter: grayscale(100%) contrast(120%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise, .rise-2, .rise-3 {
+    animation: none;
+  }
+  .animate-marquee {
+    animation: none;
+  }
+  *, *::before, *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
