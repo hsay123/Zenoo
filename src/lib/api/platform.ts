@@ -206,6 +206,27 @@ export const jobFundingSchema = z.object({
     .nullable(),
 });
 
+/** POST /api/demo/royalty — ROADMAP DEMO (HHG F5), admin only. */
+export const royaltyDemoSchema = z.object({
+  demo: z.literal("roadmap"),
+  mode: z.enum(["preview", "live"]),
+  live_available: z.boolean(),
+  live_unavailable_reason: z.string().nullable(),
+  plan: z.object({
+    job_id: z.string(),
+    amount: z.string(),
+    data_owner: z.string(),
+    contributors: z.array(
+      z.object({ wallet: z.string(), accepted_labels: z.number(), share: z.string() }),
+    ),
+    skipped_without_wallet: z.number(),
+    shares: z.object({ zeno: z.string(), data_owner: z.string(), contributors: z.string() }),
+  }),
+  sale_id: z.string().optional(),
+  tx_hash: z.string().optional(),
+});
+export type RoyaltyDemo = z.infer<typeof royaltyDemoSchema>;
+
 /** POST /api/jobs/{id}/fund — the funding intent (only `job` is used here). */
 export const fundIntentSchema = z.object({ job: jobSchema }).passthrough();
 
@@ -668,6 +689,7 @@ export const platformPaths = {
   fundJob: (id: string) => `/api/jobs/${id}/fund`,
   fundJobConfirm: (id: string) => `/api/jobs/${id}/fund/confirm`,
   fundJobCheckout: (id: string) => `/api/jobs/${id}/fund/checkout`,
+  royaltyDemo: () => "/api/demo/royalty",
   jobTasks: (id: string) => `/api/jobs/${id}/tasks`,
   jobExport: (id: string) => `/api/jobs/${id}/export`,
   availableTasks: () => "/api/tasks/available",

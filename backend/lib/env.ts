@@ -112,6 +112,14 @@ const envSchema = z.object({
   // when it is empty, and it is merged with a built-in list of known-compromised
   // addresses that can never be removed from the environment alone.
   SETTLEMENT_FORBIDDEN_ADDRESS: z.string().optional(),
+  // ROADMAP DEMO (HHG F5): deployed RoyaltySplitter. Unset = preview only.
+  ROYALTY_SPLITTER_ADDRESS: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v || /^0x[0-9a-fA-F]{40}$/.test(v),
+      "ROYALTY_SPLITTER_ADDRESS must be a 0x-prefixed address",
+    ),
   // ── Buyer funding (HHG F2) ──
   // Zeno's commission as a share of what the buyer pays, in basis points
   // (2000 = 20%: the contributor keeps 80% of the buyer price). The escrow

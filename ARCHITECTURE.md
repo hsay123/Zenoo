@@ -117,7 +117,7 @@ with a 300 s TTL. See `DATA-MODEL.md`.
 | Contract | Status | Purpose |
 | --- | --- | --- |
 | `JobEscrow.sol` | **[live]** ERC-20 USDC, ABI v3 (was native MON) | Per-job escrow; relayer-only settle; one payout per task; budget cap; close-before-withdraw |
-| `RoyaltySplitter.sol` | **[HHG, P2 demo]** | Split one USDC payment 50 / 30 / 20 (Zeno / data owner / contributors) |
+| `RoyaltySplitter.sol` | **[built, not deployed — P2 demo]** | Split one USDC payment 50 / 30 / 20 (Zeno / data owner / contributors) |
 
 ## 3. Core flow (the loop we demo)
 
