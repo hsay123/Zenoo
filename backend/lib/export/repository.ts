@@ -75,12 +75,33 @@ export async function loadAcceptedExportData(job: Job): Promise<AcceptedExportDa
     };
   }
 
+  const { records } = await buildExportRecords(tasks);
+
+  const schemaVersion =
+    records[0]?.schema_version ?? SCHEMA_BY_MODALITY[job.modality];
+  return { job, rightsReference, records, schemaVersion };
+}
+
+/** Per-record extras the Data API needs beyond the export record. */
+export interface ExportRecordExtras {
+  records: ExportRecord[];
+  /** Storage object key per asset id (for signed media URLs). */
+  objectKeyByAsset: Map<string, string>;
+  /** When each record's accepting review was recorded, per task id. */
+  acceptedAtByTask: Map<string, string>;
+}
+
+/**
+ * Build export records for accepted/paid task rows (`id, asset_id, modality`),
+ * in the order given. Shared by the export and the Data API.
+ */
+export async function buildExportRecords(tasks: Row[]): Promise<ExportRecordExtras> {
   const taskIds = tasks.map((task) => task.id as string);
   const assetIds = Array.from(new Set(tasks.map((task) => task.asset_id as string)));
 
   const assetRows = await selectRows(
     "assets",
-    "id, content_hash, width, height",
+    "id, content_hash, width, height, object_key",
     "id",
     assetIds,
   );
@@ -105,6 +126,7 @@ export async function loadAcceptedExportData(job: Job): Promise<AcceptedExportDa
   );
 
   const reviewerBySubmission = new Map<string, ReviewerType>();
+  const acceptedAtBySubmission = new Map<string, string>();
   const reviewRows = await selectRows(
     "reviews",
     "submission_id, reviewer_type, created_at",
@@ -117,6 +139,7 @@ export async function loadAcceptedExportData(job: Job): Promise<AcceptedExportDa
       review.submission_id as string,
       review.reviewer_type as ReviewerType,
     );
+    acceptedAtBySubmission.set(review.submission_id as string, review.created_at as string);
   }
 
   const txBySubmission = new Map<string, string | null>();
@@ -134,10 +157,15 @@ export async function loadAcceptedExportData(job: Job): Promise<AcceptedExportDa
   }
 
   const records: ExportRecord[] = [];
+  const objectKeyByAsset = new Map<string, string>();
+  const acceptedAtByTask = new Map<string, string>();
   for (const task of tasks) {
     const submission = submissionByTask.get(task.id as string);
     if (!submission) continue;
     const asset = assetMap.get(task.asset_id as string);
+    if (asset?.object_key) objectKeyByAsset.set(task.asset_id as string, asset.object_key as string);
+    const acceptedAt = acceptedAtBySubmission.get(submission.id as string);
+    if (acceptedAt) acceptedAtByTask.set(task.id as string, acceptedAt);
     const modality = task.modality as Modality;
     records.push({
       task_id: task.id as string,
@@ -156,7 +184,5 @@ export async function loadAcceptedExportData(job: Job): Promise<AcceptedExportDa
     });
   }
 
-  const schemaVersion =
-    records[0]?.schema_version ?? SCHEMA_BY_MODALITY[job.modality];
-  return { job, rightsReference, records, schemaVersion };
+  return { records, objectKeyByAsset, acceptedAtByTask };
 }

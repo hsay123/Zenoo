@@ -1,7 +1,12 @@
 # Zeno Data API — plan
 
-> Status: **PLAN, awaiting approval** (2026-10-29). Nothing here is built yet.
-> When built, every section flips from *planned* to **[live]**.
+> Status: **[live]** (2026-10-29, test mode). Approved decisions: API access only on the
+> $299/month plan; keys prefixed `zeno_test_`; video datasets in zeno/jsonl/csv only.
+> Developer guide: `docs/api/README.md`. E2E: `e2e/s8-data-api.spec.ts`.
+>
+> Differences from the first plan: `/labels` pages are `zeno`/`coco`/`yolo` and
+> `/labels/stream` is `jsonl`/`csv`; another organisation's dataset is a **404**
+> (no existence leak), not a 403; usage counts successful requests only.
 
 ## 1. The problem it solves
 
@@ -64,7 +69,7 @@ Management endpoints (Privy-authenticated, buyer role):
 
 | Parameter | Example | Meaning |
 | --- | --- | --- |
-| `format` | `zeno` (default) · `coco` · `yolo` · `jsonl` · `csv` | Output shape (YOLO for images only) |
+| `format` | `zeno` (default) · `coco` · `yolo` (stream: `jsonl` · `csv`) | Output shape (COCO/YOLO for images only) |
 | `classes` | `cup,hand` | Keep only these classes; records left with no boxes are dropped |
 | `rename` | `cup:mug,hand:gripper` | Rename classes on the way out |
 | `bbox` | `xywh` (default) · `xyxy` · `normalized` | Box coordinates (normalised = 0–1 by image size) |
@@ -96,7 +101,7 @@ YOLO pages return one entry per image: `{ "asset_id", "file": "<asset_id>.txt",
 so writing a YOLO folder is two loops.
 
 Errors use the existing envelope `{ "error": { "code", "message" } }` with
-`401` (missing or revoked key), `403` (another organisation's dataset), `404`,
+`401` (missing or revoked key), `402` (no API plan), `404` (unknown or another organisation's dataset),
 `422` (bad parameter, message names it) and `429` (rate limit, `Retry-After`).
 
 ## 5. Limits and plans
@@ -163,10 +168,8 @@ Checks after each step: backend typecheck, lint, tests, build; frontend the same
 Write endpoints (creating jobs over the API), licensed third-party datasets and
 royalties, per-key webhooks, SDK packages, live mode.
 
-## 11. Decisions needed
+## 11. Decisions (taken 2026-10-29)
 
-1. **Plan gate:** API access only on the $299 plan (as above), or free for every
-   buyer during the hackathon with the plan shown as "coming soon"?
-2. **Key format and prefix:** `zeno_test_…` OK?
-3. **YOLO for video:** video jobs export action segments, not boxes; v1 offers
-   `zeno`/`jsonl`/`csv` for video and returns `422` for `format=yolo|coco`. OK?
+1. **Plan gate:** API access only on the $299/month plan.
+2. **Key prefix:** `zeno_test_…` (`zeno_live_` reserved).
+3. **Video:** `zeno`/`jsonl`/`csv` only; `format=yolo|coco` on video is a `422`.

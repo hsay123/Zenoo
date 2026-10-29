@@ -40,7 +40,9 @@ npx tsc --noEmit && npm run lint && npm test && npm run build      # repo root
 5. F5 (P2) Royalty split demo contract 50/30/20.
 6. F6 (P2) Socket; TigerGraph if time allows; Cake Wallet in onboarding.
 
-Out of scope: audio/text/3D jobs, the full data API, multiple chains, new job types.
+Out of scope: audio/text/3D jobs, a dataset library / licensed third-party data, multiple chains,
+new job types. (A read-only Data API over the buyer's own accepted labels was added on
+2026-10-29 at the user's request: `docs/system/DATA-API.md`.)
 
 ## Business facts (for copy)
 - 20% commission on accepted labels (contributor keeps 80%).

@@ -4,10 +4,12 @@
  * No user auth: the request is authenticated by its Standard Webhooks HMAC
  * signature over the RAW body, with a 5-minute timestamp tolerance. Then:
  *   - a delivery id already processed is acknowledged and ignored;
- *   - only `payment.succeeded` is acted on, and the payment is re-fetched from
+ *   - `payment.succeeded` is acted on after the payment is re-fetched from
  *     Dodo's API (status, currency, amount, our metadata) before any change;
  *   - the job's escrow is funded by the treasury when it is configured,
- *     otherwise the payment waits as "paid, awaiting funding".
+ *     otherwise the payment waits as "paid, awaiting funding";
+ *   - `subscription.*` events set the organisation's Data API plan, after the
+ *     subscription is re-fetched from Dodo's API (lib/billing/apiPlan.ts).
  *
  * A verified delivery is answered 200 even when it changes nothing, so Dodo
  * does not retry it forever; failures are recorded on the payment row and can
@@ -18,15 +20,17 @@ import type { NextRequest } from "next/server";
 import { ok, apiError } from "@/lib/api/response";
 import { getEnv } from "@/lib/env";
 import { getSupabase } from "@/lib/db/supabase";
-import { dodoConfig, verifyWebhook } from "@/lib/funding/dodo";
+import { dodoWebhookConfig, verifyWebhook } from "@/lib/funding/dodo";
 import { applyPaymentSucceeded } from "@/lib/funding/service";
+import { applySubscriptionEvent } from "@/lib/billing/apiPlan";
 
 // Treasury funding waits for two Base Sepolia receipts.
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const env = getEnv();
-  const config = dodoConfig(env);
+  // Job card checkout also needs DODO_PRODUCT_ID; webhooks need only these.
+  const config = dodoWebhookConfig(env);
   if (!config) return apiError("NOT_FOUND", "Dodo payments are not enabled", 404);
 
   const rawBody = await req.text();
@@ -59,6 +63,13 @@ export async function POST(req: NextRequest) {
       // Not recorded as processed, so Dodo's redelivery can try again.
       console.error("[dodo] payment.succeeded handling failed", cause);
       return apiError("INTERNAL_ERROR", "Payment handling failed", 500);
+    }
+  } else if (verification.type.startsWith("subscription.")) {
+    try {
+      outcome = await applySubscriptionEvent(verification.data, env);
+    } catch (cause) {
+      console.error(`[dodo] ${verification.type} handling failed`, cause);
+      return apiError("INTERNAL_ERROR", "Subscription handling failed", 500);
     }
   }
 

@@ -33,7 +33,9 @@ replace the mock AI reviewer, and add contributor reputation, plus a demo of the
 **Non-goals (this week)**
 
 - Audio, text or 3D job types
-- The full data API and dataset library (royalty split is demo-only)
+- The dataset library and licensed third-party datasets (royalty split is demo-only).
+  *(Changed 2026-10-29 at the user's request: a read-only Data API for the buyer's own
+  accepted labels is now built behind a $299/month plan; see `docs/system/DATA-API.md`.)*
 - Multiple chains
 - Enterprise features (SLAs, invoicing, private workforces)
 

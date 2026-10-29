@@ -14,6 +14,7 @@ export type ErrorCode =
   | "CONFLICT"
   | "VALIDATION_ERROR"
   | "RATE_LIMIT"
+  | "PLAN_REQUIRED"
   | "INTERNAL_ERROR";
 
 export class HttpError extends Error {
@@ -51,6 +52,11 @@ export class HttpError extends Error {
 
   static unprocessable(message = "Validation failed", details?: unknown): HttpError {
     return new HttpError("VALIDATION_ERROR", message, 422, details);
+  }
+
+  /** 402: the organisation's plan does not include this (Data API). */
+  static planRequired(message = "This needs an active API plan"): HttpError {
+    return new HttpError("PLAN_REQUIRED", message, 402);
   }
 
   static rateLimit(message = "Too many requests"): HttpError {

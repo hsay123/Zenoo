@@ -34,6 +34,7 @@ export const workspaceRoles: Record<WorkspaceRole, WorkspaceRoleConfig> = {
       { label: "New job", href: "/workspace/buyer/new" },
       { label: "Quality", href: "/workspace/buyer/quality" },
       { label: "Exports", href: "/workspace/buyer/exports" },
+      { label: "API", href: "/workspace/buyer/api" },
     ],
   },
   contributor: {

@@ -488,6 +488,31 @@ export type Receipt = z.infer<typeof receiptSchema>;
  * submission on a funded job is settled straight away, and `receipt` is that
  * payout's receipt (null otherwise, or if settlement is retried later).
  */
+// ── Data API (docs/system/DATA-API.md) ──
+export const apiKeySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  prefix: z.string(),
+  scopes: z.array(z.string()),
+  last_used_at: z.string().nullable(),
+  revoked_at: z.string().nullable(),
+  created_at: z.string(),
+});
+/** Only the create response carries the full key, once. */
+export const apiKeyCreatedSchema = apiKeySchema.extend({ key: z.string() });
+export const apiPlanSchema = z.object({
+  plan: z.enum(["none", "api"]),
+  status: z.string().nullable(),
+  renews_at: z.string().nullable(),
+  price_usd: z.number(),
+  interval: z.string(),
+  checkout_available: z.boolean(),
+  test_mode: z.boolean(),
+});
+export const apiPlanCheckoutSchema = z.object({ checkout_url: z.string().url() });
+export type ApiKey = z.infer<typeof apiKeySchema>;
+export type ApiPlan = z.infer<typeof apiPlanSchema>;
+
 export const reviewDecisionResultSchema = z.object({
   review: reviewSchema,
   receipt: receiptSchema.nullable(),
@@ -763,6 +788,10 @@ export const platformPaths = {
   adminUsers: () => "/api/admin/users",
   adminUserRole: (id: string) => `/api/admin/users/${id}/role`,
   onboardingComplete: () => "/api/onboarding/complete",
+  apiKeys: () => "/api/api-keys",
+  apiKey: (id: string) => `/api/api-keys/${id}`,
+  apiPlan: () => "/api/billing/api-plan",
+  apiPlanCheckout: () => "/api/billing/api-plan/checkout",
 } as const;
 
 export const isPlatformConfigured = (): boolean =>
