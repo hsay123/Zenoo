@@ -483,11 +483,6 @@ export type Task = z.infer<typeof taskSchema>;
 export type ClaimResult = z.infer<typeof claimResultSchema>;
 export type Receipt = z.infer<typeof receiptSchema>;
 
-/**
- * POST /api/reviews/{id}/decision answers `{ review, receipt }`: an accepted
- * submission on a funded job is settled straight away, and `receipt` is that
- * payout's receipt (null otherwise, or if settlement is retried later).
- */
 // ── Data API (docs/system/DATA-API.md) ──
 export const apiKeySchema = z.object({
   id: z.string(),
@@ -513,6 +508,11 @@ export const apiPlanCheckoutSchema = z.object({ checkout_url: z.string().url() }
 export type ApiKey = z.infer<typeof apiKeySchema>;
 export type ApiPlan = z.infer<typeof apiPlanSchema>;
 
+/**
+ * POST /api/reviews/{id}/decision answers `{ review, receipt }`: an accepted
+ * submission on a funded job is settled straight away, and `receipt` is that
+ * payout's receipt (null otherwise, or if settlement is retried later).
+ */
 export const reviewDecisionResultSchema = z.object({
   review: reviewSchema,
   receipt: receiptSchema.nullable(),

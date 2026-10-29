@@ -134,12 +134,15 @@ export async function buildExportRecords(tasks: Row[]): Promise<ExportRecordExtr
     submissionIds,
     { column: "decision", value: "accept" },
   );
+  // A submission can hold several accept reviews (a low-confidence AI accept
+  // leaves the task for a human, who accepts again): the latest one decided.
   for (const review of reviewRows) {
-    reviewerBySubmission.set(
-      review.submission_id as string,
-      review.reviewer_type as ReviewerType,
-    );
-    acceptedAtBySubmission.set(review.submission_id as string, review.created_at as string);
+    const submissionId = review.submission_id as string;
+    const at = review.created_at as string;
+    const previous = acceptedAtBySubmission.get(submissionId);
+    if (previous && Date.parse(previous) >= Date.parse(at)) continue;
+    reviewerBySubmission.set(submissionId, review.reviewer_type as ReviewerType);
+    acceptedAtBySubmission.set(submissionId, at);
   }
 
   const txBySubmission = new Map<string, string | null>();

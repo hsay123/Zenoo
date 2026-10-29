@@ -73,6 +73,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // A handler that is not configured (e.g. DODO_PRODUCT_ID unset) must not
+  // consume the delivery: answer 503 unrecorded so Dodo redelivers it later.
+  const reason = (outcome as { handled?: boolean; reason?: string }).reason;
+  if (reason === "Dodo is not configured" || reason === "API plan is not configured") {
+    return apiError("INTERNAL_ERROR", `${verification.type} cannot be handled yet: ${reason}`, 503);
+  }
+
   await supabase
     .from("payment_webhook_events")
     .insert({ id: verification.id, provider: "dodo", event_type: verification.type });
