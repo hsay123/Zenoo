@@ -1,4 +1,30 @@
-# viaSocket event hook (HHG sponsor)
+# viaSocket (HHG sponsor)
+
+## A. Alerts in each user's own Slack or Discord **[live]**
+
+**Buyer → Alerts** and **Contributor → Alerts**: a user clicks **Connect Slack** or **Connect
+Discord** (viaSocket's Connect popup; viaSocket holds the OAuth), picks where Zeno posts (a channel
+from their own list, or "DM me" on Slack), and which events. Code: `backend/lib/notify/apps.ts`,
+routes `/api/integrations/*`, screen `src/components/product/AlertsSettings.tsx`, migration 016
+(`user_app_connections`: one `auth_id` + `script_id` per user and app).
+
+| App | Action (id, version) | Key | Who supplies it | When |
+| --- | --- | --- | --- | --- |
+| slack | Send Message (`row1jrbor`, V107) | `destination.messageto` | the user: "a channel" or "DM me" | once, after Connect |
+| slack | | `destination.channel_id` / `destination.userId` | the user, from their own list | once, after Connect |
+| slack | | `markdown_content` | Zeno, per event | per send |
+| slack | | `bot_details.bot_name` | constant "Zeno" | per send |
+| discord | Send Message on Channel (`rowprvu04wpv`, V6) | `channel_id` | the user, from their own list | once, after Connect |
+| discord | | `message_content` / `bot_name` | Zeno per event / constant "Zeno" | per send |
+
+The action is chosen by Zeno's code (one send action per app). Events by role: buyer —
+job funded (on), label reviewed (off); contributor — label reviewed (on), payout settled (on).
+Every send runs after the response and never fails the payment, review or payout that caused it.
+A saved destination must be one of the user's own options (never an id typed in the browser).
+Tested on real Slack and Discord connections; `viasocket-check.mjs`: 0 FAIL, 0 WARN over 10 files,
+embed token accepted.
+
+## B. Event hook to a viaSocket flow
 
 Zeno sends four events to a viaSocket flow. The flow decides where they go (Slack, Discord, Gmail,
 Google Sheets, ...), so Zeno never stores a Slack token or similar.

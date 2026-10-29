@@ -506,6 +506,33 @@ export const apiPlanSchema = z.object({
 });
 export const apiPlanCheckoutSchema = z.object({ checkout_url: z.string().url() });
 export type ApiKey = z.infer<typeof apiKeySchema>;
+
+// ── Slack/Discord alerts (viaSocket App integrations) ──
+export const alertConnectionSchema = z.object({
+  app: z.enum(["slack", "discord"]),
+  name: z.string(),
+  icon: z.string(),
+  destination: z.object({ kind: z.enum(["channel", "user"]), label: z.string().nullable() }).nullable(),
+  events: z.array(z.string()),
+  last_sent_at: z.string().nullable(),
+  last_error: z.string().nullable(),
+});
+export const integrationsSchema = z.object({
+  available: z.boolean(),
+  apps: z.array(
+    z.object({ app: z.enum(["slack", "discord"]), name: z.string(), icon: z.string(), pickers: z.array(z.string()) }),
+  ),
+  events: z.array(z.object({ event: z.string(), label: z.string(), default_on: z.boolean() })),
+  connections: z.array(alertConnectionSchema),
+});
+export const integrationsTokenSchema = z.object({
+  token: z.string(),
+  service_ids: z.record(z.string(), z.string()),
+  actions: z.record(z.string(), z.string()),
+});
+export const destinationOptionsSchema = z.array(z.object({ label: z.string(), value: z.string() }));
+export type AlertConnection = z.infer<typeof alertConnectionSchema>;
+export type Integrations = z.infer<typeof integrationsSchema>;
 export type ApiPlan = z.infer<typeof apiPlanSchema>;
 
 /**
@@ -792,6 +819,12 @@ export const platformPaths = {
   apiKey: (id: string) => `/api/api-keys/${id}`,
   apiPlan: () => "/api/billing/api-plan",
   apiPlanCheckout: () => "/api/billing/api-plan/checkout",
+  integrations: () => "/api/integrations",
+  integrationsToken: () => "/api/integrations/token",
+  integration: (app: string) => `/api/integrations/${app}`,
+  integrationConnected: (app: string) => `/api/integrations/${app}/connected`,
+  integrationOptions: (app: string, kind: string) => `/api/integrations/${app}/options?kind=${kind}`,
+  integrationTest: (app: string) => `/api/integrations/${app}/test`,
 } as const;
 
 export const isPlatformConfigured = (): boolean =>

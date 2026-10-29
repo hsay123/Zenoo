@@ -161,6 +161,11 @@ const envSchema = z.object({
   VIASOCKET_WEBHOOK_URL: z.string().url("VIASOCKET_WEBHOOK_URL must be a valid URL").optional(),
   // Optional HMAC secret; signs each event as x-zeno-signature: sha256=<hex>.
   VIASOCKET_WEBHOOK_SECRET: z.string().optional(),
+  // viaSocket App integrations (users' own Slack/Discord alerts). Server only;
+  // the embed secret signs per-user embed tokens and never reaches a browser.
+  VIASOCKET_ORG_ID: z.string().optional(),
+  VIASOCKET_PROJECT_ID: z.string().optional(),
+  VIASOCKET_EMBED_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

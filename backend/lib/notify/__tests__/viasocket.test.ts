@@ -20,12 +20,12 @@ describe("viaSocketConfig", () => {
   });
 
   it("keeps the secret only when set", () => {
-    expect(viaSocketConfig({ VIASOCKET_WEBHOOK_URL: "https://flow.viasocket.com/hook" })).toEqual({
-      url: "https://flow.viasocket.com/hook",
+    expect(viaSocketConfig({ VIASOCKET_WEBHOOK_URL: "https://hooks.example.test/zeno" })).toEqual({
+      url: "https://hooks.example.test/zeno",
     });
     expect(
-      viaSocketConfig({ VIASOCKET_WEBHOOK_URL: "https://flow.viasocket.com/hook", VIASOCKET_WEBHOOK_SECRET: "s" }),
-    ).toEqual({ url: "https://flow.viasocket.com/hook", secret: "s" });
+      viaSocketConfig({ VIASOCKET_WEBHOOK_URL: "https://hooks.example.test/zeno", VIASOCKET_WEBHOOK_SECRET: "s" }),
+    ).toEqual({ url: "https://hooks.example.test/zeno", secret: "s" });
   });
 });
 

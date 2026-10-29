@@ -13,6 +13,7 @@
 import { createHmac } from "node:crypto";
 import { after } from "next/server";
 import { getEnv } from "@/lib/env";
+import { deliverAppAlerts, viasocketConfigured } from "@/lib/notify/apps";
 
 export type ZenoEventType =
   | "job.funded"
@@ -82,17 +83,21 @@ export async function sendEvent(
 export function emitZenoEvent(type: ZenoEventType, data: ZenoEvent["data"]): void {
   let config: ViaSocketConfig | null;
   let chainId: number;
+  let apps: boolean;
   try {
     const env = getEnv();
     config = viaSocketConfig(env);
     chainId = env.CHAIN_ID;
+    apps = viasocketConfigured(env);
   } catch {
     return;
   }
-  if (!config) return;
+  if (!config && !apps) return;
   const event: ZenoEvent = { event: type, occurred_at: new Date().toISOString(), chain_id: chainId, data };
   const work = async () => {
-    await sendEvent(config, event);
+    // The webhook flow (optional) and each user's own Slack/Discord alerts.
+    if (config) await sendEvent(config, event);
+    if (apps) await deliverAppAlerts(type, data);
   };
   try {
     after(work);

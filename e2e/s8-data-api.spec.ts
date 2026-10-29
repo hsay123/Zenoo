@@ -28,6 +28,7 @@ const BOXES = [
 const v1 = async (path: string, key = fixture.key) => {
   const res = await fetch(`${BACKEND}${path}`, { headers: { Authorization: `Bearer ${key}` } });
   const text = await res.text();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test assertions read arbitrary response shapes
   let json: Record<string, any> = {};
   try {
     json = JSON.parse(text);
