@@ -8,6 +8,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { Receipt, Wallet } from "@/components/ui/icons";
 import { useAction, useJobFunding } from "@/lib/api/live";
 import {
+  faucetGrantSchema,
   fundCheckoutSchema,
   fundIntentSchema,
   jobFundingSchema,
@@ -162,6 +163,35 @@ export function JobFunding({
     if (result) onFunded?.();
   };
 
+  // Testnet only: top up the buyer's own wallet with what this job needs.
+  const getTestFunds = async () => {
+    if (!payingAddress) return;
+    setError(null);
+    setStage("Sending test USDC and gas to your wallet…");
+    const grant = await run((client) =>
+      client.post(faucetGrantSchema, platformPaths.fundJobFaucet(jobId), { body: { address: payingAddress } }),
+    );
+    if (!grant || !tokenAddress || !data) {
+      setStage(null);
+      return;
+    }
+    // The transfers are broadcast; wait until the wallet's balance shows them.
+    setStage("Waiting for Base Sepolia to confirm your test funds…");
+    const need = BigInt(data.quote.payout_units);
+    for (let i = 0; i < 45; i += 1) {
+      const fresh = await readWalletBalances(appChain.rpcUrls.default.http[0], tokenAddress, payingAddress).catch(
+        () => null,
+      );
+      if (fresh && fresh.tokenUnits >= need && fresh.gasWei >= MIN_GAS_WEI) {
+        setBalances(fresh);
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+    setStage(null);
+    setBalanceCheck((n) => n + 1);
+  };
+
   const payByCard = async () => {
     setStage(null);
     setError(null);
@@ -307,7 +337,23 @@ export function JobFunding({
                               {walletShort === "usdc"
                                 ? `This wallet needs ${formatUsdc(funding.quote.payout)} (test funds) to fund the escrow.`
                                 : "This wallet has no Base Sepolia ETH for the network fee."}{" "}
-                              {cardAvailable ? "Pay by card instead, or add funds: " : "Add funds: "}
+                              {appChain.id === 84532 ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="ml-1"
+                                    onClick={() => void getTestFunds()}
+                                    disabled={pending}
+                                  >
+                                    Get free test funds
+                                  </Button>{" "}
+                                  (Base Sepolia test USDC and gas, sent to this wallet) or add your own:{" "}
+                                </>
+                              ) : cardAvailable ? (
+                                "Pay by card instead, or add funds: "
+                              ) : (
+                                "Add funds: "
+                              )}
                               <a className="underline" href="https://faucet.circle.com" target="_blank" rel="noreferrer">
                                 test USDC
                               </a>{" "}

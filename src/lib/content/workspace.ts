@@ -36,6 +36,7 @@ export const workspaceRoles: Record<WorkspaceRole, WorkspaceRoleConfig> = {
       { label: "Exports", href: "/workspace/buyer/exports" },
       { label: "API", href: "/workspace/buyer/api" },
       { label: "Alerts", href: "/workspace/buyer/alerts" },
+      { label: "Account", href: "/workspace/buyer/account" },
     ],
   },
   contributor: {
@@ -48,6 +49,7 @@ export const workspaceRoles: Record<WorkspaceRole, WorkspaceRoleConfig> = {
       { label: "Submissions", href: "/workspace/contributor/submissions" },
       { label: "Earnings", href: "/workspace/contributor/earnings" },
       { label: "Alerts", href: "/workspace/contributor/alerts" },
+      { label: "Account", href: "/workspace/contributor/account" },
     ],
   },
   reviewer: {

@@ -89,8 +89,11 @@ export async function readWalletBalances(
   return { tokenUnits, gasWei };
 }
 
-/** Approve + fundJob on Base Sepolia need far less; this leaves headroom. */
-export const MIN_GAS_WEI = BigInt("20000000000000"); // 0.00002 ETH
+/**
+ * Gas a wallet needs before we offer wallet funding. Approve + fundJob on Base
+ * Sepolia cost about 1.5e12 wei; matches the faucet's GAS_ENOUGH_WEI.
+ */
+export const MIN_GAS_WEI = BigInt("5000000000000"); // 0.000005 ETH
 
 /** Turn a raw wallet/RPC failure into something a buyer can act on. */
 export function friendlyWalletError(cause: unknown): string | null {

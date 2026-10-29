@@ -8,6 +8,8 @@
  * brand-new identity per run (a genuine first-time onboarding account).
  */
 import type { Page } from "playwright/test";
+import { createPublicClient, createWalletClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
 import {
   generatePrivateKey,
   privateKeyToAccount,
@@ -31,12 +33,26 @@ export async function installWallet(page: Page, account: PrivateKeyAccount): Pro
     const typedData = typeof payload === "string" ? JSON.parse(payload) : payload;
     return account.signTypedData(typedData as never);
   });
+  // Real transactions: signed with the test key and broadcast on Base Sepolia
+  // (test funds only), so the UI's wallet-funding path runs end to end.
+  const transport = http(process.env.E2E_RPC_URL);
+  const chainWallet = createWalletClient({ account, chain: baseSepolia, transport });
+  const chainReader = createPublicClient({ chain: baseSepolia, transport });
+  await page.exposeFunction("__e2eSendTransaction", async (tx: { to: `0x${string}`; data?: `0x${string}`; value?: string }) =>
+    chainWallet.sendTransaction({ to: tx.to, data: tx.data, value: tx.value ? BigInt(tx.value) : undefined }),
+  );
+  await page.exposeFunction("__e2eReceipt", async (hash: `0x${string}`) => {
+    const receipt = await chainReader.getTransactionReceipt({ hash }).catch(() => null);
+    return receipt ? { status: receipt.status === "success" ? "0x1" : "0x0" } : null;
+  });
 
   await page.addInitScript(
     ({ address }: { address: string }) => {
       const bridge = window as unknown as {
         __e2eSignMessage: (p: unknown) => Promise<string>;
         __e2eSignTypedData: (p: unknown) => Promise<string>;
+        __e2eSendTransaction: (tx: unknown) => Promise<string>;
+        __e2eReceipt: (hash: string) => Promise<unknown>;
       };
       const provider = {
         isBraveWallet: true,
@@ -64,6 +80,10 @@ export async function installWallet(page: Page, account: PrivateKeyAccount): Pro
               return null;
             case "wallet_getCapabilities":
               return {};
+            case "eth_sendTransaction":
+              return bridge.__e2eSendTransaction(params?.[0]);
+            case "eth_getTransactionReceipt":
+              return bridge.__e2eReceipt(String(params?.[0]));
             default:
               return null;
           }
