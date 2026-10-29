@@ -129,7 +129,7 @@ acceptance_rate = accepted / (accepted + rejected + needs_revision), over the la
 - The Reviewer tier makes someone *eligible*; promotion to the `reviewer` role remains a manual
   admin action, so reputation can never self-escalate privileges.
 
-## 7. Duplicate-account detection — F6.2 **[HHG, stretch]**
+## 7. Duplicate-account detection — F6.2 **[live; TigerGraph engine ready]**
 
 TigerGraph graph of users ↔ wallets ↔ devices ↔ submission hashes; accounts sharing a wallet
 or producing near-identical payloads are flagged for admin review. Flags route to humans only;

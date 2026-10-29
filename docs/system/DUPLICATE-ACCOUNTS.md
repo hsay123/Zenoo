@@ -1,6 +1,16 @@
 # Duplicate-account detection with TigerGraph — design proposal (HHG F6.2)
 
-**Status: proposal, not built.** Needs approval before any code. PRD F6.2 is "if time allows".
+**Status: built (2026-10-29).** In-process engine live; TigerGraph engine ready (schema, queries,
+loader and tests) and used once `TIGERGRAPH_HOST` + `TIGERGRAPH_TOKEN` are set — not yet run against a
+live TigerGraph workspace. Needs migration 013.
+
+**As built:** `backend/lib/integrity/` (graph rules, TigerGraph adapter, service), `/tigergraph`
+(GSQL schema + queries), `account_flags` table, admin routes `/api/admin/integrity/{run,flags}`,
+the admin page "Integrity flags" section, and `npm run integrity:check` (dry run). Because
+`users.wallet_address` is unique, "shared wallet" means a payout wallet that also funded a buyer's
+job; signals built: `wallet_link`, `duplicate_work` (same label content on the same asset),
+`self_dealing`, `linked_review`. Device/network signals are not built (need a privacy review).
+First dry run on live data: 46 accounts, 78 submissions, 0 flags.
 
 ## Problem
 

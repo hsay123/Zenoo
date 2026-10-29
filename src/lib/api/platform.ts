@@ -206,6 +206,48 @@ export const jobFundingSchema = z.object({
     .nullable(),
 });
 
+/* Integrity flags (HHG F6.2) — admin only. */
+const flagAccountSchema = z
+  .object({
+    id: z.string(),
+    email: z.string().nullable(),
+    wallet_address: z.string().nullable(),
+    role: z.string(),
+  })
+  .nullable();
+
+export const integrityFlagSchema = z.object({
+  id: z.string(),
+  signal: z.enum(["wallet_link", "duplicate_work", "self_dealing", "linked_review"]),
+  evidence: z.record(z.string(), z.unknown()),
+  status: z.enum(["open", "confirmed", "cleared"]),
+  source: z.enum(["local", "tigergraph"]),
+  created_at: z.string(),
+  updated_at: z.string(),
+  user: flagAccountSchema,
+  related: flagAccountSchema,
+});
+export type IntegrityFlag = z.infer<typeof integrityFlagSchema>;
+
+export const integrityFlagListSchema = z.object({
+  engine: z.enum(["local", "tigergraph"]),
+  items: z.array(integrityFlagSchema),
+});
+
+export const integrityRunSchema = z.object({
+  engine: z.enum(["local", "tigergraph"]),
+  accounts: z.number(),
+  submissions: z.number(),
+  flags: z.number(),
+  by_signal: z.record(z.string(), z.number()),
+});
+
+export const integrityFlagUpdateSchema = z.object({
+  id: z.string(),
+  status: z.enum(["open", "confirmed", "cleared"]),
+  resolved_at: z.string().nullable(),
+});
+
 /** POST /api/demo/royalty — ROADMAP DEMO (HHG F5), admin only. */
 export const royaltyDemoSchema = z.object({
   demo: z.literal("roadmap"),
@@ -690,6 +732,9 @@ export const platformPaths = {
   fundJobConfirm: (id: string) => `/api/jobs/${id}/fund/confirm`,
   fundJobCheckout: (id: string) => `/api/jobs/${id}/fund/checkout`,
   royaltyDemo: () => "/api/demo/royalty",
+  integrityFlags: (status = "open") => `/api/admin/integrity/flags?status=${status}`,
+  integrityFlag: (id: string) => `/api/admin/integrity/flags/${id}`,
+  integrityRun: () => "/api/admin/integrity/run",
   jobTasks: (id: string) => `/api/jobs/${id}/tasks`,
   jobExport: (id: string) => `/api/jobs/${id}/export`,
   availableTasks: () => "/api/tasks/available",

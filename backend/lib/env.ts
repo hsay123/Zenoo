@@ -112,6 +112,11 @@ const envSchema = z.object({
   // when it is empty, and it is merged with a built-in list of known-compromised
   // addresses that can never be removed from the environment alone.
   SETTLEMENT_FORBIDDEN_ADDRESS: z.string().optional(),
+  // Integrity checks (HHG F6.2). With host + token the TigerGraph engine runs;
+  // otherwise the in-process graph engine (same rules) is used.
+  TIGERGRAPH_HOST: z.string().url().optional(),
+  TIGERGRAPH_GRAPH: z.string().optional().default("Zeno"),
+  TIGERGRAPH_TOKEN: z.string().optional(),
   // ROADMAP DEMO (HHG F5): deployed RoyaltySplitter. Unset = preview only.
   ROYALTY_SPLITTER_ADDRESS: z
     .string()

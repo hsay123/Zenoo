@@ -5,6 +5,7 @@ import { useAction, useAdminUsers } from "@/lib/api/live";
 import { useSession } from "@/lib/api/session";
 import { QueryView, InlineError, InfoNote } from "@/components/product/AsyncView";
 import { RoyaltyDemo } from "@/components/product/RoyaltyDemo";
+import { IntegrityFlags } from "@/components/product/IntegrityFlags";
 import { WorkspaceHeader, Stat } from "@/components/product/WorkspaceHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -257,6 +258,7 @@ export function AdminUsers() {
         )}
       </QueryView>
 
+      <IntegrityFlags />
       <RoyaltyDemo />
     </>
   );

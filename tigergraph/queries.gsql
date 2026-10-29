@@ -1,0 +1,39 @@
+# Zeno integrity queries (HHG F6.2). Install after schema.gsql:
+#   gsql -g Zeno queries.gsql
+#
+# Each returns account pairs (both directions) that the backend turns into
+# flags; clusters, self-dealing and linked-review are derived from these
+# links in backend/lib/integrity/graph.ts, identically for both engines.
+
+USE GRAPH Zeno
+
+# Two accounts that used the same wallet (payout wallet or job-funding wallet).
+CREATE QUERY zeno_wallet_links() FOR GRAPH Zeno SYNTAX v2 {
+  TYPEDEF TUPLE<STRING a, STRING b, STRING wallet, STRING how_a, STRING how_b> WalletLink;
+  ListAccum<WalletLink> @@links;
+
+  Accounts = {Account.*};
+  Linked = SELECT b
+           FROM Accounts:a -(USES_WALLET:e1)- Wallet:w -(USES_WALLET:e2)- Account:b
+           WHERE a.id != b.id
+           ACCUM @@links += WalletLink(a.id, b.id, w.address, e1.how, e2.how);
+
+  PRINT @@links AS links;
+}
+
+# Two accounts that submitted identical (non-empty) label content on the same asset.
+CREATE QUERY zeno_duplicate_work() FOR GRAPH Zeno SYNTAX v2 {
+  TYPEDEF TUPLE<STRING a, STRING b, STRING asset, STRING sa, STRING sb> DuplicateWork;
+  ListAccum<DuplicateWork> @@dups;
+
+  Accounts = {Account.*};
+  Copied = SELECT b
+           FROM Accounts:a -(SUBMITTED>)- Submission:s1 -(ON_ASSET>)- Asset:x
+                -(<ON_ASSET)- Submission:s2 -(<SUBMITTED)- Account:b
+           WHERE a.id != b.id AND s1.has_content AND s1.content_hash == s2.content_hash
+           ACCUM @@dups += DuplicateWork(a.id, b.id, x.id, s1.id, s2.id);
+
+  PRINT @@dups AS dups;
+}
+
+INSTALL QUERY zeno_wallet_links, zeno_duplicate_work

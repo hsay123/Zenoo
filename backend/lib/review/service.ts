@@ -35,6 +35,7 @@ import {
   loadImageForReview,
 } from "@/lib/review/aiReviewer";
 import { routeSubmission } from "@/lib/review/router";
+import { accountsLinked, openFlagsFor } from "@/lib/integrity/service";
 import type { AuthUser } from "@/lib/auth/verifyToken";
 import type {
   PaginatedList,
@@ -180,11 +181,13 @@ export async function applyAutoRouting(
   if (task.status !== "submitted") return;
 
   const profile = await loadContributorProfile(submission.contributor_id);
+  const flags = await openFlagsFor(submission.contributor_id);
   const route = routeSubmission({
     modality: task.modality,
     isFastFlag: submission.is_fast_flag,
     contributorGoldAccuracy: profile?.gold_accuracy ?? null,
     contributorTasksCompleted: profile?.tasks_completed ?? 0,
+    integrityFlagged: flags.length > 0,
   });
   if (route.route === "human") return;
 
@@ -282,6 +285,12 @@ export async function decideSubmission(
   const submission = await loadSubmission(input.submissionId);
   if (submission.contributor_id === input.reviewer.id) {
     throw HttpError.forbidden("A reviewer cannot review their own submission");
+  }
+  // An open integrity flag links these accounts (HHG F6.2): another reviewer decides.
+  if (await accountsLinked(input.reviewer.id, submission.contributor_id)) {
+    throw HttpError.forbidden(
+      "This reviewer is linked to the contributor by an open integrity flag; another reviewer must decide",
+    );
   }
   assertReasonMatchesDecision(input.decision, input.reasonCode);
 

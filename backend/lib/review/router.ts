@@ -25,6 +25,8 @@ export interface RoutingSignals {
   isFastFlag: boolean;
   contributorGoldAccuracy: number | null;
   contributorTasksCompleted: number;
+  /** An open integrity flag on the contributor (HHG F6.2) — optional, default false. */
+  integrityFlagged?: boolean;
 }
 
 export interface RoutingDecision {
@@ -50,6 +52,9 @@ export function routeSubmission(signals: RoutingSignals): RoutingDecision {
     signals.contributorGoldAccuracy < GOLD_ACCURACY_FLOOR
   ) {
     reasons.push("low gold accuracy");
+  }
+  if (signals.integrityFlagged) {
+    reasons.push("possible duplicate account");
   }
 
   if (reasons.length > 0) return { route: "human", reasons };
