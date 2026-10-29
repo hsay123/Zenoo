@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { detectIntegrityFlags, findLinks, type IntegrityInput } from "../graph";
-import { buildUpsertPayload, parseLinkResults, tigerGraphConfig, tigerGraphLinks } from "../tigergraph";
+import { buildUpsertPayload, parseLinkResults, resolveToken, tigerGraphConfig, tigerGraphLinks } from "../tigergraph";
 import type { Env } from "@/lib/env";
 
 const W = "0x1111111111111111111111111111111111111111";
@@ -58,21 +58,59 @@ describe("tigerGraphConfig", () => {
   });
 });
 
+describe("tigerGraphConfig with a database secret", () => {
+  it("prefers the secret over a token", () => {
+    expect(
+      tigerGraphConfig({ TIGERGRAPH_HOST: "https://x", TIGERGRAPH_SECRET: "s", TIGERGRAPH_TOKEN: "t" } as Env),
+    ).toEqual({ host: "https://x", graph: "Zeno", secret: "s" });
+  });
+});
+
+describe("resolveToken", () => {
+  it("exchanges the secret for a token via POST /gsql/v1/tokens", async () => {
+    let seen: { url: string; body: unknown } | null = null;
+    const fakeFetch = (async (url: string, init: RequestInit) => {
+      seen = { url, body: JSON.parse(String(init.body)) };
+      return new Response(JSON.stringify({ error: false, token: "tok-123" }), { status: 200 });
+    }) as unknown as typeof fetch;
+    expect(await resolveToken({ host: "https://tg", graph: "Zeno", secret: "sec" }, fakeFetch)).toBe("tok-123");
+    expect(seen).toEqual({
+      url: "https://tg/gsql/v1/tokens",
+      body: { secret: "sec", graph: "Zeno", lifetime: "3600" },
+    });
+  });
+
+  it("uses a configured token without calling the server", async () => {
+    const never = (async () => {
+      throw new Error("should not be called");
+    }) as unknown as typeof fetch;
+    expect(await resolveToken({ host: "https://tg", graph: "Zeno", token: "t" }, never)).toBe("t");
+  });
+
+  it("reports a rejected secret without echoing it", async () => {
+    const reject = (async () =>
+      new Response(JSON.stringify({ error: true, message: "invalid secret" }), { status: 401 })) as unknown as typeof fetch;
+    const err = await resolveToken({ host: "https://tg", graph: "Zeno", secret: "TOP-SECRET" }, reject).catch((e) => e);
+    expect(String(err.message)).toMatch(/invalid secret/);
+    expect(String(err.message)).not.toContain("TOP-SECRET");
+  });
+});
+
 describe("buildUpsertPayload", () => {
   it("creates the vertices and edges the GSQL schema defines", () => {
     const p = buildUpsertPayload(input);
-    expect(Object.keys(p.vertices.Account).sort()).toEqual(["alice", "bob", "buyer", "rev"]);
-    expect(p.vertices.Wallet).toEqual({ [W]: {} });
-    expect(p.vertices.Submission.s1).toEqual({
+    expect(Object.keys(p.vertices.ZenoAccount).sort()).toEqual(["alice", "bob", "buyer", "rev"]);
+    expect(p.vertices.ZenoWallet).toEqual({ [W]: {} });
+    expect(p.vertices.ZenoSubmission.s1).toEqual({
       content_hash: { value: "0xq" },
       has_content: { value: true },
       status: { value: "accepted" },
     });
-    expect(p.edges.Account.alice.USES_WALLET.Wallet[W]).toEqual({ how: { value: "payout wallet" } });
-    expect(p.edges.Account.buyer.USES_WALLET.Wallet[W]).toEqual({ how: { value: "funded job job-1" } });
-    expect(p.edges.Account.buyer.OWNS_JOB.LabelJob["job-1"]).toEqual({});
-    expect(p.edges.Submission.s2.ON_ASSET.Asset.a1).toEqual({});
-    expect(p.edges.Account.rev.REVIEWED.Submission.s1).toEqual({});
+    expect(p.edges.ZenoAccount.alice.ZENO_USES_WALLET.ZenoWallet[W]).toEqual({ how: { value: "payout wallet" } });
+    expect(p.edges.ZenoAccount.buyer.ZENO_USES_WALLET.ZenoWallet[W]).toEqual({ how: { value: "funded job job-1" } });
+    expect(p.edges.ZenoAccount.buyer.ZENO_OWNS_JOB.ZenoJob["job-1"]).toEqual({});
+    expect(p.edges.ZenoSubmission.s2.ZENO_ON_ASSET.ZenoAsset.a1).toEqual({});
+    expect(p.edges.ZenoAccount.rev.ZENO_REVIEWED.ZenoSubmission.s1).toEqual({});
   });
 });
 

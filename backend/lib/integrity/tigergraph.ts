@@ -6,8 +6,10 @@
  * the same `detectIntegrityFlags` derivation as the in-process engine, so both
  * produce identical flags for identical data.
  *
- * Selected only when TIGERGRAPH_HOST and TIGERGRAPH_TOKEN are set; otherwise
- * the in-process engine runs. Plain fetch, no SDK dependency.
+ * Selected only when TIGERGRAPH_HOST plus TIGERGRAPH_SECRET (preferred: a
+ * database secret, exchanged for a short-lived token on each run) or
+ * TIGERGRAPH_TOKEN are set; otherwise the in-process engine runs. Plain
+ * fetch, no SDK dependency.
  */
 
 import type { Env } from "@/lib/env";
@@ -16,14 +18,46 @@ import type { AccountLink, IntegrityInput } from "@/lib/integrity/graph";
 export interface TigerGraphConfig {
   host: string;
   graph: string;
-  token: string;
+  /** A ready token, or... */
+  token?: string;
+  /** ...a database secret exchanged for a token via POST /gsql/v1/tokens. */
+  secret?: string;
 }
 
 export function tigerGraphConfig(env: Env): TigerGraphConfig | null {
   const host = (env.TIGERGRAPH_HOST ?? "").trim().replace(/\/+$/, "");
+  const secret = (env.TIGERGRAPH_SECRET ?? "").trim();
   const token = (env.TIGERGRAPH_TOKEN ?? "").trim();
-  if (!host || !token) return null;
-  return { host, token, graph: (env.TIGERGRAPH_GRAPH ?? "Zeno").trim() || "Zeno" };
+  if (!host || (!secret && !token)) return null;
+  const graph = (env.TIGERGRAPH_GRAPH ?? "Zeno").trim() || "Zeno";
+  return secret ? { host, graph, secret } : { host, graph, token };
+}
+
+/** A REST++ token: the configured one, or a fresh one from the secret. */
+export async function resolveToken(
+  config: TigerGraphConfig,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  if (config.token) return config.token;
+  if (!config.secret) throw new Error("TigerGraph needs TIGERGRAPH_SECRET or TIGERGRAPH_TOKEN");
+  const response = await fetchImpl(`${config.host}/gsql/v1/tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret: config.secret, graph: config.graph, lifetime: "3600" }),
+  });
+  const text = await response.text();
+  let body: { error?: boolean; message?: string; token?: string; results?: { token?: string } };
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error(`TigerGraph token request failed: ${response.status}`);
+  }
+  const token = body.token ?? body.results?.token;
+  if (!response.ok || body.error || !token) {
+    // Never echo the secret; the server message is safe to show.
+    throw new Error(`TigerGraph token request failed: ${response.status} ${body.message ?? ""}`.trim());
+  }
+  return token;
 }
 
 type Attr = Record<string, { value: string | boolean }>;
@@ -37,8 +71,8 @@ const norm = (wallet: string | null | undefined) => {
 
 /** Build the REST++ upsert body for the whole integrity graph. */
 export function buildUpsertPayload(input: IntegrityInput): { vertices: Vertices; edges: Edges } {
-  const vertices: Vertices = { Account: {}, Wallet: {}, LabelJob: {}, Asset: {}, Submission: {} };
-  const edges: Edges = { Account: {}, Submission: {} };
+  const vertices: Vertices = { ZenoAccount: {}, ZenoWallet: {}, ZenoJob: {}, ZenoAsset: {}, ZenoSubmission: {} };
+  const edges: Edges = { ZenoAccount: {}, ZenoSubmission: {} };
   const edge = (fromType: string, fromId: string, type: string, toType: string, toId: string, attrs: Attr = {}) => {
     const byFrom = (edges[fromType][fromId] ??= {});
     const byType = (byFrom[type] ??= {});
@@ -47,38 +81,38 @@ export function buildUpsertPayload(input: IntegrityInput): { vertices: Vertices;
   };
 
   for (const a of input.accounts) {
-    vertices.Account[a.id] = {};
+    vertices.ZenoAccount[a.id] = {};
     const wallet = norm(a.wallet_address);
     if (wallet) {
-      vertices.Wallet[wallet] = {};
-      edge("Account", a.id, "USES_WALLET", "Wallet", wallet, { how: { value: "payout wallet" } });
+      vertices.ZenoWallet[wallet] = {};
+      edge("ZenoAccount", a.id, "ZENO_USES_WALLET", "ZenoWallet", wallet, { how: { value: "payout wallet" } });
     }
   }
   for (const j of input.jobs) {
-    vertices.LabelJob[j.id] = {};
-    vertices.Account[j.buyer_id] ??= {};
-    edge("Account", j.buyer_id, "OWNS_JOB", "LabelJob", j.id);
+    vertices.ZenoJob[j.id] = {};
+    vertices.ZenoAccount[j.buyer_id] ??= {};
+    edge("ZenoAccount", j.buyer_id, "ZENO_OWNS_JOB", "ZenoJob", j.id);
     const wallet = norm(j.funding_wallet_address);
     if (wallet) {
-      vertices.Wallet[wallet] = {};
-      edge("Account", j.buyer_id, "USES_WALLET", "Wallet", wallet, { how: { value: `funded job ${j.id}` } });
+      vertices.ZenoWallet[wallet] = {};
+      edge("ZenoAccount", j.buyer_id, "ZENO_USES_WALLET", "ZenoWallet", wallet, { how: { value: `funded job ${j.id}` } });
     }
   }
   for (const s of input.submissions) {
-    vertices.Submission[s.id] = {
+    vertices.ZenoSubmission[s.id] = {
       content_hash: { value: s.content_hash },
       has_content: { value: s.has_content },
       status: { value: s.status },
     };
-    vertices.Asset[s.asset_id] = {};
-    vertices.Account[s.contributor_id] ??= {};
-    edge("Account", s.contributor_id, "SUBMITTED", "Submission", s.id);
-    edge("Submission", s.id, "ON_ASSET", "Asset", s.asset_id);
-    edge("Submission", s.id, "FOR_JOB", "LabelJob", s.job_id);
+    vertices.ZenoAsset[s.asset_id] = {};
+    vertices.ZenoAccount[s.contributor_id] ??= {};
+    edge("ZenoAccount", s.contributor_id, "ZENO_SUBMITTED", "ZenoSubmission", s.id);
+    edge("ZenoSubmission", s.id, "ZENO_ON_ASSET", "ZenoAsset", s.asset_id);
+    edge("ZenoSubmission", s.id, "ZENO_FOR_JOB", "ZenoJob", s.job_id);
   }
   for (const r of input.reviews) {
-    vertices.Account[r.reviewer_id] ??= {};
-    edge("Account", r.reviewer_id, "REVIEWED", "Submission", r.submission_id);
+    vertices.ZenoAccount[r.reviewer_id] ??= {};
+    edge("ZenoAccount", r.reviewer_id, "ZENO_REVIEWED", "ZenoSubmission", r.submission_id);
   }
   return { vertices, edges };
 }
@@ -119,7 +153,8 @@ export async function tigerGraphLinks(
   input: IntegrityInput,
   fetchImpl: typeof fetch = fetch,
 ): Promise<AccountLink[]> {
-  const headers = { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" };
+  const token = await resolveToken(config, fetchImpl);
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   const call = async (path: string, init: RequestInit) => {
     const response = await fetchImpl(`${config.host}${path}`, { ...init, headers });
     const text = await response.text();

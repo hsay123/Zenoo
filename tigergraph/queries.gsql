@@ -12,9 +12,9 @@ CREATE QUERY zeno_wallet_links() FOR GRAPH Zeno SYNTAX v2 {
   TYPEDEF TUPLE<STRING a, STRING b, STRING wallet, STRING how_a, STRING how_b> WalletLink;
   ListAccum<WalletLink> @@links;
 
-  Accounts = {Account.*};
+  Accounts = {ZenoAccount.*};
   Linked = SELECT b
-           FROM Accounts:a -(USES_WALLET:e1)- Wallet:w -(USES_WALLET:e2)- Account:b
+           FROM Accounts:a -(ZENO_USES_WALLET:e1)- ZenoWallet:w -(ZENO_USES_WALLET:e2)- ZenoAccount:b
            WHERE a.id != b.id
            ACCUM @@links += WalletLink(a.id, b.id, w.address, e1.how, e2.how);
 
@@ -26,10 +26,10 @@ CREATE QUERY zeno_duplicate_work() FOR GRAPH Zeno SYNTAX v2 {
   TYPEDEF TUPLE<STRING a, STRING b, STRING asset, STRING sa, STRING sb> DuplicateWork;
   ListAccum<DuplicateWork> @@dups;
 
-  Accounts = {Account.*};
+  Accounts = {ZenoAccount.*};
   Copied = SELECT b
-           FROM Accounts:a -(SUBMITTED>)- Submission:s1 -(ON_ASSET>)- Asset:x
-                -(<ON_ASSET)- Submission:s2 -(<SUBMITTED)- Account:b
+           FROM Accounts:a -(ZENO_SUBMITTED>)- ZenoSubmission:s1 -(ZENO_ON_ASSET>)- ZenoAsset:x
+                -(<ZENO_ON_ASSET)- ZenoSubmission:s2 -(<ZENO_SUBMITTED)- ZenoAccount:b
            WHERE a.id != b.id AND s1.has_content AND s1.content_hash == s2.content_hash
            ACCUM @@dups += DuplicateWork(a.id, b.id, x.id, s1.id, s2.id);
 

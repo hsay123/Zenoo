@@ -117,6 +117,9 @@ const envSchema = z.object({
   TIGERGRAPH_HOST: z.string().url().optional(),
   TIGERGRAPH_GRAPH: z.string().optional().default("Zeno"),
   TIGERGRAPH_TOKEN: z.string().optional(),
+  // Preferred over TIGERGRAPH_TOKEN: a database secret (Savanna → Database
+  // Secrets), exchanged for a 1-hour token on each run.
+  TIGERGRAPH_SECRET: z.string().optional(),
   // ROADMAP DEMO (HHG F5): deployed RoyaltySplitter. Unset = preview only.
   ROYALTY_SPLITTER_ADDRESS: z
     .string()
