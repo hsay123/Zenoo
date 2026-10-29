@@ -196,11 +196,17 @@ export async function applyPaymentSucceeded(
 
   const row = await loadPayment(zenoPaymentId);
   if (!row) return { handled: false, reason: "unknown zeno_payment_id" };
-  if (payment.currency !== row.currency) {
-    return { handled: false, reason: `currency ${payment.currency} != ${row.currency}` };
+  // A buyer may pay in their local currency (Dodo Adaptive Currency, e.g.
+  // INR); Dodo then reports the settled amount in the product's currency.
+  // Verify that settled amount, or the charged one when nothing was converted.
+  const converted = payment.currency !== row.currency;
+  const currency = converted ? payment.settlement_currency : payment.currency;
+  const amount = converted ? payment.settlement_amount : payment.total_amount;
+  if (currency !== row.currency) {
+    return { handled: false, reason: `currency ${currency ?? payment.currency} != ${row.currency}` };
   }
-  // `total_amount` includes any tax, so it may exceed the quote; never less.
-  if (!Number.isInteger(payment.total_amount) || payment.total_amount < row.amount_cents) {
+  // The amount includes any tax, so it may exceed the quote; never less.
+  if (typeof amount !== "number" || !Number.isInteger(amount) || amount < row.amount_cents) {
     return { handled: false, reason: "paid amount is less than the quoted amount" };
   }
   if (row.checkout_session_id && payment.checkout_session_id &&

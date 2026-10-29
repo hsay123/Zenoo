@@ -172,6 +172,31 @@ describe("applyPaymentSucceeded", () => {
     expect(db.jobs[0].funding_status).toBe("unfunded");
   });
 
+  it("accepts a payment converted to the buyer's currency when it settles the full quote", async () => {
+    // Dodo Adaptive Currency: the buyer pays INR; Dodo settles USD to us.
+    const { treasury, calls } = fakeTreasury();
+    const outcome = await apply(
+      dodoPayment({ currency: "INR", total_amount: 49_520, settlement_currency: "USD", settlement_amount: 500 }),
+      treasury,
+    );
+    expect(outcome).toEqual({ handled: true, payment_id: "pay-1", state: "funded" });
+    expect(calls.fund).toBe(1);
+  });
+
+  it("refuses a converted payment that settles short or reports no settlement", async () => {
+    const t = fakeTreasury().treasury;
+    const short = await apply(
+      dodoPayment({ currency: "INR", total_amount: 49_520, settlement_currency: "USD", settlement_amount: 499 }),
+      t,
+    );
+    expect(short).toEqual({ handled: false, reason: "paid amount is less than the quoted amount" });
+    expect((await apply(dodoPayment({ currency: "INR", total_amount: 49_520 }), t)).handled).toBe(false);
+    expect(
+      (await apply(dodoPayment({ currency: "INR", settlement_currency: "EUR", settlement_amount: 500 }), t)).handled,
+    ).toBe(false);
+    expect(db.jobs[0].funding_status).toBe("unfunded");
+  });
+
   it("refuses a different currency, a foreign session, and missing metadata", async () => {
     const t = fakeTreasury().treasury;
     expect((await apply(dodoPayment({ currency: "INR" }), t)).handled).toBe(false);

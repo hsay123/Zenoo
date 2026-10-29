@@ -110,6 +110,12 @@ export interface DodoPayment {
   currency: string;
   metadata: Record<string, unknown>;
   checkout_session_id?: string | null;
+  /**
+   * What Dodo settles to us. With Adaptive Currency a buyer may pay in their
+   * own currency (e.g. INR); this stays in the product's currency (USD).
+   */
+  settlement_currency?: string | null;
+  settlement_amount?: number | null;
 }
 
 export function getPayment(
