@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { expect } from "playwright/test";
+import { fundJob } from "./funding";
 
 export const BACKEND = process.env.E2E_BACKEND ?? "http://localhost:3010";
 
@@ -100,6 +101,8 @@ export async function createPublishedJob(
     title: string;
     reward?: number;
     budget?: number;
+    /** Fund the escrow on Base Sepolia after publishing (default true). */
+    fund?: boolean;
   },
 ): Promise<Fixture> {
   const bytes = fs.readFileSync(fixtureBytesPath(opts.modality));
@@ -168,8 +171,9 @@ export async function createPublishedJob(
       project_id: projectId,
       title: opts.title,
       modality: opts.modality,
-      reward_per_task: opts.reward ?? 6,
-      budget: opts.budget ?? 120,
+      // Small amounts: fixture jobs are funded with real test USDC.
+      reward_per_task: opts.reward ?? 0.04,
+      budget: opts.budget ?? Number((0.04 * opts.count).toFixed(6)),
       label_list: SCHEMA[opts.modality].labels,
       schema_version_id: SCHEMA[opts.modality].id,
     },
@@ -190,6 +194,9 @@ export async function createPublishedJob(
     method: "POST",
   });
   expect(publish.status, publish.text).toBe(200);
+
+  // Only a funded job's tasks are listed and claimable (HHG F2).
+  if (opts.fund !== false) await fundJob(buyerToken, jobId);
 
   return { projectId, jobId, title: opts.title, assetIds, taskIds };
 }

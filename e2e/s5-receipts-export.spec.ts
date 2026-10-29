@@ -8,8 +8,10 @@
  *
  *   1. export is accepted-versions-only, provenance manifest, no contributor identity
  *   2. the buyer can stream a real download from the export screen
- *   3. settlement is recorded as a *mock* receipt and is public (no auth)
- *   4. the contributor's earnings row links to that receipt and labels it as mock
+ *   3. settlement writes a public receipt (no auth), labelled by its mode:
+ *      "Mock settlement" with the mock service, "On-chain settlement" with a
+ *      real tx hash when the backend settles on Base Sepolia
+ *   4. the contributor's earnings row links to that receipt with the same label
  *   5. role boundaries: contributor cannot export another buyer's job (403) or
  *      settle (403); anonymous is 401
  *
@@ -37,6 +39,7 @@ const fixture = {
   submissionId: "",
   receiptId: "",
   contributorId: "",
+  receiptIsMock: true,
 };
 
 async function openAs(
@@ -175,7 +178,7 @@ test("buyer streams a real file download from the export screen", async ({ brows
   }
 });
 
-test("settlement writes a public mock receipt", async ({ browser }) => {
+test("settlement writes a public receipt labelled by its mode", async ({ browser }) => {
   // The receipt API is served without auth.
   const publicRes = await api(`/api/receipts/${fixture.receiptId}`);
   expect(publicRes.status, publicRes.text).toBe(200);
@@ -184,11 +187,14 @@ test("settlement writes a public mock receipt", async ({ browser }) => {
     task_id: string;
     annotation_hash: string;
     is_mock: boolean;
+    tx_hash: string | null;
   };
   expect(receipt.id).toBe(fixture.receiptId);
   expect(receipt.task_id).toBe(fixture.acceptedTaskId);
   expect(receipt.annotation_hash).toMatch(/^0x[0-9a-f]{64}$/);
-  expect(receipt.is_mock).toBe(true);
+  fixture.receiptIsMock = receipt.is_mock;
+  // A real (non-mock) payout always carries its Base Sepolia tx hash.
+  if (!receipt.is_mock) expect(receipt.tx_hash).toMatch(/^0x[0-9a-f]{64}$/);
 
   // And it renders on a fully anonymous page load.
   const { context, page } = await openAs(browser);
@@ -197,7 +203,9 @@ test("settlement writes a public mock receipt", async ({ browser }) => {
     await expect(page.getByRole("heading", { name: "Payout receipt" })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText("Mock settlement").first()).toBeVisible();
+    await expect(
+      page.getByText(receipt.is_mock ? "Mock settlement" : "On-chain settlement").first(),
+    ).toBeVisible();
     await expect(page.getByText(fixture.receiptId)).toBeVisible();
     await expect(page.getByText(receipt.annotation_hash)).toBeVisible();
   } finally {
@@ -205,7 +213,7 @@ test("settlement writes a public mock receipt", async ({ browser }) => {
   }
 });
 
-test("contributor earnings labels the payout as mock and links to its receipt", async ({
+test("contributor earnings labels the payout by mode and links to its receipt", async ({
   browser,
 }) => {
   const { context, page } = await openAs(browser, CONTRIBUTOR);
@@ -214,7 +222,9 @@ test("contributor earnings labels the payout as mock and links to its receipt", 
 
     const row = page.locator("tr", { hasText: fixture.title });
     await expect(row).toBeVisible({ timeout: 20_000 });
-    const receiptLink = row.getByRole("link", { name: "Mock settlement" });
+    const receiptLink = row.getByRole("link", {
+      name: fixture.receiptIsMock ? "Mock settlement" : /on-chain ·/,
+    });
     await expect(receiptLink).toBeVisible();
 
     await receiptLink.click();
