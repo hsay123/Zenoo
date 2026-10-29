@@ -12,6 +12,7 @@ import { getSupabase } from "@/lib/db/supabase";
 import { HttpError } from "@/lib/api/errors";
 import type { Env } from "@/lib/env";
 import { hashCanonicalJson } from "@/lib/hash";
+import { emitZenoEvent } from "@/lib/notify/viasocket";
 import {
   detectIntegrityFlags,
   findLinks,
@@ -130,6 +131,13 @@ export async function runIntegrityCheck(
 
   const by_signal: Record<string, number> = {};
   for (const f of flags) by_signal[f.signal] = (by_signal[f.signal] ?? 0) + 1;
+  if (flags.length > 0) {
+    emitZenoEvent("integrity.flagged", {
+      engine,
+      flags: flags.length,
+      ...by_signal,
+    });
+  }
   return {
     engine,
     accounts: input.accounts.length,

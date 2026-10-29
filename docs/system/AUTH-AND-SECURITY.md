@@ -86,7 +86,6 @@ Rules:
 | Sybil contributors **[HHG]** | Reputation gating, wallet uniqueness, TigerGraph flags (stretch) |
 | Wrong chain / stale contract | Preflight: chain id allow-list, ABI version, token address and decimals |
 
-## 7. Supply chain **[HHG, F6.1]**
+## 7. Supply chain
 
-Socket GitHub app (or CLI) scans dependency changes on pull requests. `forge-std` is pinned as a
-git submodule; `package-lock.json` files are committed for both apps.
+`forge-std` is pinned as a git submodule; `package-lock.json` files are committed for both apps.

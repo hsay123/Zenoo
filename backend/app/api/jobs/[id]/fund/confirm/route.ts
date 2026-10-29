@@ -19,6 +19,7 @@ import { getSupabase } from "@/lib/db/supabase";
 import { getEnv } from "@/lib/env";
 import { createPublicClient, http, keccak256, stringToHex, type Address, type Hex } from "viem";
 import { verifyJobFunding } from "@/lib/settlement/funding";
+import { emitZenoEvent } from "@/lib/notify/viasocket";
 import {
   chainForId,
   fromTokenUnits,
@@ -135,6 +136,12 @@ export async function POST(
       if (!data) throw HttpError.conflict("Job funding status changed concurrently");
 
       const updatedJob = toJob(data as JobRow);
+      emitZenoEvent("job.funded", {
+        job_id: job.id,
+        amount_usdc: fromTokenUnits(verification.amount),
+        tx_hash,
+        method: "wallet",
+      });
       return ok(updatedJob);
     }),
   );

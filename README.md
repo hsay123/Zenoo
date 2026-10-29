@@ -70,12 +70,23 @@ npx playwright test e2e/s1-auth-roles.spec.ts e2e/s2-buyer-job.spec.ts \
   e2e/s5-receipts-export.spec.ts e2e/s6-lifecycle-admin.spec.ts
 # Contracts
 cd contracts && forge test
-# Dependency supply chain (Socket.dev) — needs a free API token once: npx socket@1.11.1 login
-npx socket@1.11.1 ci            # scans both lockfiles; exits non-zero if the report is unhealthy
 ```
 
-Socket's GitHub app can also be installed on the repository to flag risky dependency changes on
-every pull request (no code change needed).
+## viaSocket event hook (HHG sponsor)
+
+Zeno posts its key events to a [viaSocket](https://viasocket.com) flow, which fans them out to
+Slack, Discord, Gmail, Sheets or any of viaSocket's apps — Zeno holds no third-party credentials.
+Set `VIASOCKET_WEBHOOK_URL` (backend) to a flow's Webhook trigger URL; blank means no events.
+
+| Event | When |
+| --- | --- |
+| `job.funded` | Escrow funding confirmed (wallet or card) |
+| `review.decided` | A human reviewer accepts or rejects a submission |
+| `payout.settled` | A contributor payout settles, with its receipt and tx hash |
+| `integrity.flagged` | An integrity check stores flags |
+
+Delivery runs after the response and never blocks or fails the action. Setup:
+`docs/system/VIASOCKET.md`.
 
 ## Security posture
 
