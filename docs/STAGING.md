@@ -12,7 +12,11 @@
 > `0x0FB2Ef2e0440ceE42c0a7A5160801Af554E51569`, token Circle test USDC
 > `0x036CbD53842c5426634e7929541eC2318f3dCF7e`; treasury signer
 > `0xDe089C13bc56460085b3c43Db4C9ccA18BBA7A6B`. All three are fresh testnet-only keys.
-> Local `npm run settlement:preflight`: all 12 checks PASS (`mode=chain`). Source not yet
+> Local `npm run settlement:preflight`: all 12 checks PASS (`mode=chain`).
+> **RoyaltySplitter (F5 roadmap demo)** at
+> [`0x5E625CA857b293E315d95846D13485785D233A66`](https://sepolia.basescan.org/address/0x5E625CA857b293E315d95846D13485785D233A66)
+> (deploy tx [`0x7813cc40…cd0e379e`](https://sepolia.basescan.org/tx/0x7813cc4008d0e14a890ca1e0fadb2f902cd0e379e0186c04bda719dfb5e5e0e3)):
+> owner = escrow owner, Zeno share → treasury, split 5000/3000/2000 bps, token = test USDC. Source not yet
 > verified on Basescan (needs an Etherscan API key). The Monad-testnet
 > deployment and payout described below (§4.2) are **prior work**, kept as a
 > historical record: that ABI v2 escrow is refused by the current preflight.

@@ -171,7 +171,7 @@ Real settlement is used only when `JOB_ESCROW_ADDRESS`, `RPC_URL`, `SETTLEMENT_P
 Otherwise `MockSettlementService` is used: deterministic mock hash, `is_mock = true`, labelled
 "mock" in the UI.
 
-## 6. Royalty split demo — F5 **[built, not deployed]**
+## 6. Royalty split demo — F5 **[live on Base Sepolia]**
 
 `RoyaltySplitter.sol`: immutable token and three recipients with basis points summing to
 10 000 (default 5000 / 3000 / 2000). `pay(amount)` pulls USDC from the caller and transfers each
@@ -181,7 +181,7 @@ custody-free (each share moves straight from the payer with `transferFrom`) and 
 contributors = wallets behind its accepted labels, weighted by count — and either previews it
 (`dry_run`, or whenever `ROYALTY_SPLITTER_ADDRESS` is unset) or pays it from the treasury and verifies
 the `SplitPaid` event. Shown on the admin page as **"Roadmap demo"**. Deploy with
-`script/DeployRoyaltySplitter.s.sol` (not yet deployed).
+`script/DeployRoyaltySplitter.s.sol`; deployed at `0x5E625CA857b293E315d95846D13485785D233A66`.
 
 ## 7. Decimal safety checklist (PRD risk #1)
 
