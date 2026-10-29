@@ -49,7 +49,12 @@ flag; fewer than 5 completed tasks; gold accuracy below 80 %. Otherwise AI lane.
 
 **[live]** `MockAiReviewer` — deterministic heuristics, `rubric_version = "mock-v1"`.
 
-**[HHG, F3]** real model behind the same contract:
+**[live, F3]** `ClaudeAiReviewer` (`lib/review/claudeAiReviewer.ts`) — Claude Sonnet 5.5
+(`claude-sonnet-5-5`, effort `medium` by default) behind the same contract, selected by
+`lib/review/aiReviewer.ts` only when `ANTHROPIC_API_KEY` is set and `AI_REVIEWER` is not `mock`.
+The model call runs **after** the submit response (`next/server` `after`), with a 45 s timeout;
+the auto-applied status change is conditional on the task still being `submitted`, so a human
+who decides first always wins. Rubric version: `zeno-image-review-v1:<model>`.
 
 ```ts
 interface AiReviewer {
@@ -77,7 +82,11 @@ Design rules:
   shown to the human reviewer.
 - **Config:** provider key server-side only; `AI_REVIEWER=mock|model` selects the
   implementation, so tests and keyless environments keep the mock.
-- **Model choice:** open (PRD §9 Q4) — decide on cost per image before wiring.
+- **Model choice:** Claude Sonnet 5.5 (PRD §9 Q4 decided 2026-10-29). Rough cost
+  ≈ $0.005–0.01 per reviewed image at `medium` effort (est.).
+- **Privacy:** the image is downloaded server-side through a 60 s signed URL and sent to
+  Anthropic's API as base64; the signed URL itself never leaves the backend. Images over 5 MB or
+  of unsupported types go to a human.
 
 The interface change from sync to async touches `review/service.ts` (`applyAutoRouting`) and
 its tests; nothing else calls the reviewer.
@@ -91,7 +100,7 @@ its tests; nothing else calls the reviewer.
   contributor) upholds (→ `accepted`, payable) or dismisses (→ `rejected`, final). The code does
   not yet require the adjudicator to differ from the original reviewer — candidate hardening.
 
-## 6. Contributor reputation — F4 **[HHG, P1]**
+## 6. Contributor reputation — F4 **[live]**
 
 New module `backend/lib/reputation/`, pure scoring + one repository function.
 
@@ -107,15 +116,20 @@ acceptance_rate = accepted / (accepted + rejected + needs_revision), over the la
 | Trusted | Verified + ≥ 50 accepted, score ≥ 85 | + video tasks |
 | Reviewer | Trusted + admin promotion | review queue (role change stays an admin action) |
 
-- Recomputed after every gold result and every review decision; stored on
-  `contributor_profiles` (`reputation_score`, `tier`).
+- Computed on demand from existing data (`lib/reputation/service.ts`): gold passes/fails from
+  `code` reviews on gold submissions, outcomes from each non-gold task's current status. Cached on
+  `contributor_profiles` (`reputation_score`, `tier`; migration 012). Thresholds are env-configurable
+  (`REPUTATION_*`); `REPUTATION_GATING=off` disables gating.
+- **No one loses existing access:** migration 012 gives every contributor that exists at migration time
+  a `tier_floor` of `trusted` (a floor lifts the tier, never lowers it). If the migration is not yet
+  applied, gating switches itself off rather than demoting everyone.
 - Enforced in `GET /tasks/available` and `POST /tasks/{id}/claim` (server-side, not just hidden
   in the UI).
 - Shown on the contributor earnings page (F4.4).
 - The Reviewer tier makes someone *eligible*; promotion to the `reviewer` role remains a manual
   admin action, so reputation can never self-escalate privileges.
 
-## 7. Duplicate-account detection — F6.2 **[HHG, stretch]**
+## 7. Duplicate-account detection — F6.2 **[live; TigerGraph engine ready]**
 
 TigerGraph graph of users ↔ wallets ↔ devices ↔ submission hashes; accounts sharing a wallet
 or producing near-identical payloads are flagged for admin review. Flags route to humans only;

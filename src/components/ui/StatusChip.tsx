@@ -85,6 +85,17 @@ export const statusSpecs: Record<string, ChipSpec> = {
   /* Validation */
   passed: { label: "Validation passed", tone: "success", Icon: Check },
   needs_fix: { label: "Validation errors", tone: "danger", Icon: AlertTriangle },
+
+  /* Job funding (buyer) */
+  funding_unfunded: { label: "Unfunded", tone: "neutral", Icon: Info },
+  funding_pending: { label: "Funding pending", tone: "pending", Icon: Clock },
+  funding_paid_awaiting_funding: {
+    label: "Paid, awaiting funding",
+    tone: "pending",
+    Icon: Clock,
+  },
+  funding_funded: { label: "Funded", tone: "success", Icon: Lock },
+  funding_closed: { label: "Closed", tone: "neutral", Icon: Lock },
 };
 
 export function StatusChip({

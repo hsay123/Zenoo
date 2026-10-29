@@ -21,6 +21,13 @@ describe("routeSubmission", () => {
     expect(routeSubmission(base).route).toBe("ai");
   });
 
+  it("routes a contributor with an open integrity flag to a human", () => {
+    const decision = routeSubmission({ ...base, integrityFlagged: true });
+    expect(decision.route).toBe("human");
+    expect(decision.reasons).toContain("possible duplicate account");
+    expect(routeSubmission({ ...base, integrityFlagged: false }).route).toBe("ai");
+  });
+
   it("routes fast submissions to a human", () => {
     expect(routeSubmission({ ...base, isFastFlag: true }).route).toBe("human");
   });

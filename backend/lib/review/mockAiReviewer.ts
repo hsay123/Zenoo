@@ -25,7 +25,20 @@ export interface AiReviewInput {
   modality: Modality;
   payload: ImageBoxesPayload | ActionSegmentsPayload;
   labelList: string[];
+  /** The job rubric, when set (used by the model reviewer; ignored by the mock). */
+  rubric?: Record<string, unknown> | null;
+  /**
+   * The image under review (model reviewer only). Loaded lazily so the mock
+   * never touches storage. Dimensions are the asset's stored pixel size.
+   */
+  image?: {
+    width: number | null;
+    height: number | null;
+    load: () => Promise<{ data: string; mediaType: ReviewImageMediaType }>;
+  };
 }
+
+export type ReviewImageMediaType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
 
 export interface AiReviewResult {
   decision: ReviewDecision;
@@ -36,11 +49,20 @@ export interface AiReviewResult {
   rubric_version: string;
 }
 
+/**
+ * A first-pass reviewer. The mock answers synchronously; the model reviewer
+ * returns a Promise and may throw — callers await the result and treat any
+ * error as "route to a human".
+ */
 export interface AiReviewer {
-  review(input: AiReviewInput): AiReviewResult;
+  /** "mock" results are labelled mock (rubric_version "mock-v1"). */
+  readonly kind?: "mock" | "model";
+  review(input: AiReviewInput): AiReviewResult | Promise<AiReviewResult>;
 }
 
 export class MockAiReviewer implements AiReviewer {
+  readonly kind = "mock" as const;
+
   review(input: AiReviewInput): AiReviewResult {
     if (input.modality === "video") {
       return {

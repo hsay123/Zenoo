@@ -14,7 +14,11 @@ bracket_spacing = false
 int_types = "long"
 
 [rpc_endpoints]
+base_sepolia = "https://sepolia.base.org"
+# Prior work (pre-HHG): the v2 native-MON escrow lived on Monad testnet.
 monad_testnet = "https://testnet-rpc.monad.xyz"
 
 [etherscan]
+# Basescan via the Etherscan v2 multichain API (one key for all chains).
+base_sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 84532 }
 monad_testnet = { key = "${MONAD_VERIFIER_KEY}", url = "https://testnet.monadexplorer.com/api" }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEarnings } from "@/lib/api/live";
 import { QueryView, InfoNote } from "@/components/product/AsyncView";
+import { ContributorReputation } from "@/components/product/ContributorReputation";
 import { WorkspaceHeader, Stat } from "@/components/product/WorkspaceHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -28,6 +29,11 @@ export function ContributorEarnings() {
         title="Earnings"
         description="Rewards are credited on acceptance. Amounts are shown in full precision; an on-chain hash appears only when settlement was recorded on-chain."
       />
+
+      {/* Reputation shows even before any earnings exist (new contributors). */}
+      {earnings.status === "ready" && earnings.data.reputation ? (
+        <ContributorReputation reputation={earnings.data.reputation} />
+      ) : null}
 
       <QueryView
         query={earnings}

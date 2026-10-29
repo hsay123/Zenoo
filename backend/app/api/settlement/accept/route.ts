@@ -14,7 +14,7 @@ import { withIdempotency } from "@/lib/idempotency";
 import { settlementAcceptSchema } from "@/lib/validation/settlement";
 import { settleAcceptedTask } from "@/lib/settlement/service";
 
-// Real settlement waits for a Monad-testnet receipt, which can exceed the
+// Real settlement waits for a Base Sepolia receipt, which can exceed the
 // platform default function timeout (10s on Vercel Hobby). 30s is plenty for
 // a ~0.5s block time plus RPC latency.
 export const maxDuration = 30;

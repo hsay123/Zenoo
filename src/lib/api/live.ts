@@ -20,6 +20,7 @@ import {
   adminUserSchema,
   appealQueueItemSchema,
   earningsSummarySchema,
+  jobFundingSchema,
   jobSchema,
   projectSchema,
   publicReceiptSchema,
@@ -204,6 +205,12 @@ export function useJobs(filters?: { status?: string; modality?: string }) {
 export function useJob(id: string) {
   return useClientQuery(`job:${id}`, (client) =>
     client.get(jobSchema, platformPaths.job(id)),
+  );
+}
+
+export function useJobFunding(id: string) {
+  return useClientQuery(`job-funding:${id}`, (client) =>
+    client.get(jobFundingSchema, platformPaths.jobFunding(id)),
   );
 }
 

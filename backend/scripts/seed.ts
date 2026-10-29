@@ -127,10 +127,17 @@ async function main() {
   console.log("  ✓ reviewer:", reviewer.id);
 
   // ── Contributor profiles ────────────────────────────────────
+  // Seeded contributors get the Trusted floor (migration 012) so seed/test
+  // flows can claim every task type, exactly as before reputation gating.
   for (const userId of [contributor1.id, contributor2.id]) {
     await upsert(
       "contributor_profiles",
-      { user_id: userId, qualification_passed: true, qualification_score: 85.0 },
+      {
+        user_id: userId,
+        qualification_passed: true,
+        qualification_score: 85.0,
+        tier_floor: "trusted",
+      },
       "user_id",
     );
   }

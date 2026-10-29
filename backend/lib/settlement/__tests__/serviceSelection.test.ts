@@ -22,7 +22,9 @@ vi.mock("../preflight", () => ({
 
 const env = {
   JOB_ESCROW_ADDRESS: "0x000000000000000000000000000000000000dEaD",
-  MONAD_RPC_URL: "https://testnet-rpc.monad.xyz",
+  CHAIN_ID: 84532,
+  RPC_URL: "https://sepolia.base.org",
+  USDC_ADDRESS: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
   SETTLEMENT_PRIVATE_KEY: `0x${"11".repeat(32)}`,
   SETTLEMENT_FORBIDDEN_ADDRESS: "0x3333333333333333333333333333333333333333",
 } as unknown as Env;
@@ -95,7 +97,7 @@ describe("selectSettlementService", () => {
       configured: true,
       ok: false,
       mode: "mock",
-      chainId: 10143,
+      chainId: 84532,
       escrow: null,
       signer: null,
       owner: null,

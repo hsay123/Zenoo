@@ -23,7 +23,8 @@
    `allowed_mime_types = {image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime}` —
    applied by 006. Effective ceiling is `min(bucket, project global)`.
 3. **Privy dashboard:** add `https://localhost:3000` to allowed origins; enable email login.
-   Client config uses `supportedChains: [Monad testnet]` with **no `defaultChain`** so external
+   Client config uses `supportedChains: [Base Sepolia]` (from `NEXT_PUBLIC_CHAIN_ID`) with
+   **no `defaultChain`** so external
    wallets are not asked to switch chain during login (some wallets reject an unsupported testnet
    default chain).
 5. **Trust the dev certificate (optional, removes the browser warning):** the `dev` script generates
@@ -47,15 +48,33 @@ AI_CONFIDENCE_THRESHOLD
 GOLD_IOU_THRESHOLD
 GOLD_SEGMENT_MS_TOLERANCE
 FAST_SUBMIT_THRESHOLD_SECONDS
-JOB_ESCROW_ADDRESS             # optional (real settlement)
-MONAD_RPC_URL                  # optional
+CHAIN_ID                       # 84532 = Base Sepolia (default; the only chain allowed)
+RPC_URL                        # e.g. https://sepolia.base.org (MONAD_RPC_URL still read as a fallback alias)
+USDC_ADDRESS                   # Base Sepolia: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+JOB_ESCROW_ADDRESS             # optional (real settlement): the USDC JobEscrow, ABI v3
+SETTLEMENT_PRIVATE_KEY         # optional (real settlement): fresh relayer key, server-only
+SETTLEMENT_FORBIDDEN_ADDRESS   # required for real settlement: known-compromised addresses
 ```
 Root `.env.local` (frontend, public only — see `.env.example`):
 ```
 NEXT_PUBLIC_API_BASE_URL=/platform       # same-origin proxy path (see next.config.ts)
 PLATFORM_API_URL=http://localhost:3010   # server-side target of the /platform rewrite (not public)
 NEXT_PUBLIC_PRIVY_APP_ID=                # same public app id as the backend
+NEXT_PUBLIC_CHAIN_ID=84532               # must match the backend CHAIN_ID
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=    # optional; Privy's dashboard id is used when blank
 ```
+Amounts are USDC with 6 decimals end to end (`parseUnits(x, 6)` at the chain boundary).
+
+### Buyer funding (HHG F2)
+- Apply `backend/supabase/migrations/011_job_payments.sql` (Supabase SQL editor). Until it is
+  applied, wallet funding works but card/UPI checkout cannot record payments.
+- Wallet funding needs `JOB_ESCROW_ADDRESS`, `USDC_ADDRESS`, `RPC_URL` and an allowed `CHAIN_ID`.
+- Card/UPI (Dodo **test mode** only) needs `DODO_API_KEY`, `DODO_WEBHOOK_SECRET` and
+  `DODO_PRODUCT_ID` (a pay-what-you-want product). Point a Dodo webhook at
+  `<backend>/api/payments/dodo/webhook` for `payment.succeeded`.
+- Auto-funding after a card payment needs `TREASURY_PRIVATE_KEY` (a fresh third key holding test
+  USDC + test ETH). Without it, paid jobs show "Paid, awaiting funding"; retry with
+  `POST /api/payments/{id}/fund` (admin) once it is set.
 
 ## 3. Start
 ```bash

@@ -11,9 +11,29 @@ import {
 } from "../service";
 
 describe("onboardingBodySchema", () => {
-  it("accepts a contributor choice", () => {
-    const parsed = onboardingBodySchema.parse({ account_type: "contributor" });
+  it("accepts a contributor choice with a payout wallet", () => {
+    const parsed = onboardingBodySchema.parse({
+      account_type: "contributor",
+      wallet_address: "0x1111111111111111111111111111111111111111",
+    });
     expect(parsed.account_type).toBe("contributor");
+    expect(parsed.wallet_address).toBe("0x1111111111111111111111111111111111111111");
+  });
+
+  it("requires a payout wallet for a contributor", () => {
+    const result = onboardingBodySchema.safeParse({ account_type: "contributor" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(["wallet_address"]);
+    }
+  });
+
+  it("rejects a malformed wallet address", () => {
+    for (const wallet_address of ["0x123", "not-a-wallet", `${"0x1111111111111111111111111111111111111111"}00`]) {
+      expect(
+        onboardingBodySchema.safeParse({ account_type: "contributor", wallet_address }).success,
+      ).toBe(false);
+    }
   });
 
   it("accepts a buyer choice with an organization name", () => {

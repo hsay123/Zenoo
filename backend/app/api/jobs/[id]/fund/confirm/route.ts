@@ -1,8 +1,11 @@
 /**
  * POST /api/jobs/{id}/fund/confirm – confirm job funding after on-chain transaction.
  *
- * The buyer calls this after the funding transaction is confirmed on-chain.
- * This verifies the transaction and updates the job status to funded.
+ * The buyer calls this after the funding transaction (USDC `approve` +
+ * `JobEscrow.fundJob`) is confirmed on-chain. The job becomes `funded` only
+ * when the mined receipt contains a `JobFunded` event from the configured
+ * escrow for THIS job, from the job's funding wallet, for at least the job's
+ * budget in USDC base units (see `lib/settlement/funding.ts`).
  */
 
 import type { NextRequest } from "next/server";
@@ -14,9 +17,18 @@ import { requireRole } from "@/lib/auth/requireRole";
 import { loadJobForActor, toJob, type JobRow } from "@/lib/jobs/repository";
 import { getSupabase } from "@/lib/db/supabase";
 import { getEnv } from "@/lib/env";
-import { createPublicClient, http, type Address, type Hex } from "viem";
-import { monadTestnet } from "viem/chains";
-import { jobEscrowAbi } from "@/lib/settlement/chain";
+import { createPublicClient, http, keccak256, stringToHex, type Address, type Hex } from "viem";
+import { verifyJobFunding } from "@/lib/settlement/funding";
+import {
+  chainForId,
+  fromTokenUnits,
+  isAllowedChain,
+  resolveRpcUrl,
+  toTokenUnits,
+} from "@/lib/settlement/network";
+
+/** How long to wait for the funding receipt before asking the buyer to retry. */
+const RECEIPT_TIMEOUT_MS = 60_000;
 
 export async function OPTIONS() {
   return corsOptions();
@@ -30,7 +42,8 @@ export async function POST(
     await withErrorHandler(async () => {
       const user = await requireRole(req, "buyer");
       const { id } = await params;
-      const body = await readJson(req);
+      // The body can be read only once.
+      const body = (await readJson(req)) as { tx_hash?: unknown };
 
       const job = await loadJobForActor(id, user);
       if (job.funding_status === "funded") {
@@ -39,9 +52,12 @@ export async function POST(
       if (job.funding_status !== "pending") {
         throw HttpError.conflict("Job is not in pending funding state");
       }
+      if (!job.funding_wallet_address) {
+        throw HttpError.conflict("Job has no funding wallet recorded");
+      }
 
-      const { tx_hash } = await readJson(req) as { tx_hash: string };
-      if (!tx_hash || !/^0x[0-9a-fA-F]{64}$/.test(tx_hash)) {
+      const tx_hash = typeof body.tx_hash === "string" ? body.tx_hash : "";
+      if (!/^0x[0-9a-fA-F]{64}$/.test(tx_hash)) {
         throw HttpError.unprocessable("Valid transaction hash is required");
       }
 
@@ -50,57 +66,63 @@ export async function POST(
       if (!escrowAddress) {
         throw HttpError.internal("JobEscrow contract not configured");
       }
-
-      const rpcUrl = env.MONAD_RPC_URL;
+      const rpcUrl = resolveRpcUrl(env);
       if (!rpcUrl) {
-        throw HttpError.internal("Monad RPC URL not configured");
+        throw HttpError.internal("RPC_URL not configured");
+      }
+      const chain = chainForId(env.CHAIN_ID);
+      if (!chain || !isAllowedChain(env.CHAIN_ID)) {
+        throw HttpError.conflict(`Funding is not enabled on chain ${env.CHAIN_ID}`);
       }
 
-      // Verify the transaction on-chain
-      const client = createPublicClient({ chain: monadTestnet, transport: http(env.MONAD_RPC_URL) });
-
-      // Get the transaction receipt
-      const receipt = await client.waitForTransactionReceipt({ hash: tx_hash as Hex });
-      if (receipt.status !== "success") {
-        throw HttpError.unprocessable("Transaction failed on-chain");
+      let minAmount: bigint;
+      try {
+        minAmount = toTokenUnits(String(job.budget));
+      } catch {
+        throw HttpError.internal(`Job budget is not a valid USDC amount: ${job.budget}`);
       }
 
-      // Verify the transaction is a fundJob call to the correct escrow
-      const logs = receipt.logs.filter(log => log.address.toLowerCase() === env.JOB_ESCROW_ADDRESS!.toLowerCase());
-      let jobFunded = false;
-      let fundedAmount = BigInt(0);
+      const client = createPublicClient({ chain, transport: http(rpcUrl) });
 
-      for (const log of logs) {
-        try {
-          const decoded = await client.readContract({
-            address: env.JOB_ESCROW_ADDRESS as `0x${string}`,
-            abi: jobEscrowAbi,
-            functionName: "jobs",
-            args: [log.topics[1]],
-          }) as [Address, bigint, bigint, boolean, boolean];
-          
-          const [buyer, budget, paid, open, exists] = decoded;
-          if (exists && budget > BigInt(0)) {
-            jobFunded = true;
-            fundedAmount = budget;
-            break;
-          }
-        } catch {
-          // Not a JobFunded event, continue
-        }
+      // The RPC must really be the configured chain (never a different network).
+      const rpcChainId = await client.getChainId();
+      if (rpcChainId !== env.CHAIN_ID) {
+        throw HttpError.internal(
+          `RPC reports chainId ${rpcChainId} (expected ${env.CHAIN_ID})`,
+        );
       }
 
-      if (!jobFunded) {
-        throw HttpError.unprocessable("Transaction does not contain a valid JobFunded event");
+      let receipt;
+      try {
+        receipt = await client.waitForTransactionReceipt({
+          hash: tx_hash as Hex,
+          timeout: RECEIPT_TIMEOUT_MS,
+        });
+      } catch {
+        throw HttpError.unprocessable(
+          "Funding transaction receipt not found yet; retry once it is confirmed",
+        );
       }
 
-      // Update job status to funded
+      const verification = verifyJobFunding(receipt, {
+        escrowAddress: escrowAddress as Address,
+        // Same derivation as POST /fund, which stored it as chain_job_id.
+        chainJobId: (job.chain_job_id as Hex | null) ?? keccak256(stringToHex(job.id)),
+        funder: job.funding_wallet_address as Address,
+        minAmount,
+      });
+      if (!verification.ok) {
+        throw HttpError.unprocessable(verification.reason);
+      }
+
+      // Update job status to funded. `funded_amount` is NUMERIC(18,6): store the
+      // decimal USDC string, not raw base units.
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from("jobs")
         .update({
           funding_status: "funded",
-          funded_amount: fundedAmount.toString(),
+          funded_amount: fromTokenUnits(verification.amount),
           funding_tx_hash: tx_hash,
           funded_at: new Date().toISOString(),
         })

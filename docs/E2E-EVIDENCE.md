@@ -317,3 +317,22 @@ Known gap (unchanged): there is **no separate admin action log** in this build, 
 commit-reveal **audit sample** remains unimplemented (the `audit_samples` table exists but the feature needs
 an oracle/funded key). The audit trail the product does have is the append-only review, appeal and
 payout-receipt record. This is stated in the admin screen itself, not left implicit.
+
+## HHG F1 — USDC money loop on Base Sepolia (2026-10-29)
+
+A direct contract-level loop against the deployed USDC `JobEscrow`
+[`0xa4B1053d0878Ae2b86640A547E125BEB20456962`](https://sepolia.basescan.org/address/0xa4B1053d0878Ae2b86640A547E125BEB20456962)
+(test USDC only; the job id is a test id, not a platform job).
+
+| Step | Tx | Result |
+| --- | --- | --- |
+| Treasury approves escrow for 1 USDC | [`0x70b80475…`](https://sepolia.basescan.org/tx/0x70b804757aa83965fcfd58ad8e6378940965ec3db8ce08930870fa4716ea38da) | success |
+| Treasury `fundJob` 1 USDC (1,000,000 units) | [`0x7f7dd45b…`](https://sepolia.basescan.org/tx/0x7f7dd45bc4bdf9bdeb4187b374372793d1ac12d87df455a317720bddc8fd6d2e) | success; job buyer = treasury, budget 1,000,000 |
+| Relayer `settle` 0.04 USDC (40,000 units) to a test contributor | [`0xce044679…`](https://sepolia.basescan.org/tx/0xce044679fa3ee24d7dc4ccbdf054e5785b57c7a23c81c016e551e3ae229b8fd0) | success; contributor 0 → 40,000, escrow 1,000,000 → 960,000, task settled |
+
+Backend verifiers on the real receipts (`npm run escrow:verify`): `verifyJobFunding` → ok, amount
+1,000,000, funder = treasury; `decodeTaskSettled` → amount 40,000 to the contributor.
+
+Safety probes (simulated calls, no gas): paying the same task twice → `AlreadySettled`; paying 2 USDC
+from a 1 USDC job → `BudgetExceeded`; a stranger paying → `NotRelayer`; owner withdrawing from an
+open job → `JobNotClosed`; relayer withdrawing → `NotOwner`.

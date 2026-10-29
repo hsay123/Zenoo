@@ -11,17 +11,16 @@ export const modalitySchema = z.enum(["image", "video"]);
 export const jobStatusSchema = z.enum(["draft", "published", "paused", "closed"]);
 
 /**
- * Canonical on-chain amount unit for the testnet MVP: **native testnet MON**.
+ * Canonical on-chain amount unit: **USDC** (6 decimals) on Base.
  *
- * Budget and reward feed `parseEther()` at the chain boundary, so they must be
- * exact decimals — never JS floats. We accept a number *or* string for
- * backwards compatibility, normalise to a string, and enforce the
- * `NUMERIC(18,6)` storage shape: at most 12 integer digits and 6 decimals, and
- * strictly positive.
+ * Budget and reward feed `parseUnits(amount, 6)` (`toTokenUnits`) at the chain
+ * boundary, so they must be exact decimals — never JS floats. We accept a
+ * number *or* string for backwards compatibility, normalise to a string, and
+ * enforce the `NUMERIC(18,6)` storage shape: at most 12 integer digits and 6
+ * decimals (exactly USDC's precision), and strictly positive.
  *
- * There is no USD field on the job: the stored number *is* the MON payout. A
- * separate business-pricing field and an explicit conversion would be required
- * before any USD-denominated reward can be used for settlement.
+ * The stored number *is* the USDC payout. (The `Mon` in the exported names is
+ * historical — kept so existing imports keep working.)
  */
 const MON_AMOUNT_RE = /^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/;
 const ZERO_AMOUNT_RE = /^0(?:\.0+)?$/;
@@ -44,7 +43,7 @@ export const monAmountSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "must be a positive amount in testnet MON with at most 6 decimal places",
+          "must be a positive amount in USDC with at most 6 decimal places",
       });
     }
   })

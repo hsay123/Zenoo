@@ -13,6 +13,7 @@ import type { PageParams } from "@/lib/api/pagination";
 import { assertLegalTransition, type TaskStatus } from "@/lib/tasks/stateMachine";
 import { loadTask, toTask, updateTaskStatus } from "@/lib/tasks/repository";
 import { insertReview, loadSubmission } from "@/lib/review/repository";
+import { accountsLinked } from "@/lib/integrity/service";
 import {
   findAppealForSubmission,
   insertAppeal,
@@ -112,6 +113,12 @@ export async function decideAppeal(input: DecideAppealInput): Promise<Appeal> {
   const submission = await loadSubmission(appeal.submission_id);
   if (submission.contributor_id === input.reviewer.id) {
     throw HttpError.forbidden("A reviewer cannot adjudicate their own submission");
+  }
+  // An open integrity flag links these accounts (HHG F6.2): another adjudicator decides.
+  if (await accountsLinked(input.reviewer.id, submission.contributor_id)) {
+    throw HttpError.forbidden(
+      "This reviewer is linked to the contributor by an open integrity flag; another reviewer must decide",
+    );
   }
 
   assertAppealReasonMatch(input.decision, input.reasonCode);

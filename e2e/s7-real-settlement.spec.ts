@@ -1,5 +1,5 @@
 /**
- * S7 — REAL Monad-testnet settlement (live, funded escrow).
+ * S7 — REAL Base Sepolia USDC settlement (live, funded escrow).
  *
  * Not a CI spec: it assumes a funded on-chain `JobEscrow` and a backend that has
  * passed the fail-closed settlement preflight (`mode=chain`). It drives the real
@@ -70,7 +70,7 @@ test.beforeAll(async () => {
   const data = report.json.data as { ok: boolean; mode: string; chainId: number | null };
   expect(data.mode, "backend must be in chain mode for S7").toBe("chain");
   expect(data.ok).toBe(true);
-  expect(data.chainId).toBe(10143);
+  expect(data.chainId).toBe(84532); // Base Sepolia
 });
 
 test("contributor claims, annotates the video, saves, reloads and submits", async ({

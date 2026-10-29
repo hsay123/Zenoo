@@ -4,7 +4,7 @@
 
 - **Privy** handles login: email OTP or external wallet (SIWE). Users without a wallet get a
   Privy embedded wallet on login.
-- **[HHG]** WalletConnect enabled in `PrivyProvider` so mobile wallets such as Cake Wallet can
+- WalletConnect enabled in `PrivyProvider` so mobile wallets such as Cake Wallet can
   connect (`NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`). Supported chain from `NEXT_PUBLIC_CHAIN_ID`
   (Base Sepolia by default). No `defaultChain`, so external wallets are not forced to switch
   during login (see `docs/E2E-EVIDENCE.md`).

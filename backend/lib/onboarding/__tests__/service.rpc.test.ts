@@ -60,6 +60,7 @@ describe("completeOnboarding (transactional delegation)", () => {
       p_user_id: "user-1",
       p_account_type: "buyer",
       p_org_name: "Acme Robotics",
+      p_wallet_address: null,
     });
     expect(h.tables).toEqual([]);
     expect(result.organization_id).toBe("11111111-1111-4111-8111-111111111111");
@@ -76,7 +77,10 @@ describe("completeOnboarding (transactional delegation)", () => {
       error: null,
     };
 
-    const choice = onboardingBodySchema.parse({ account_type: "contributor" });
+    const choice = onboardingBodySchema.parse({
+      account_type: "contributor",
+      wallet_address: "0x1111111111111111111111111111111111111111",
+    });
     const result = await completeOnboarding("user-1", choice);
 
     expect(h.calls).toHaveLength(1);
@@ -84,6 +88,7 @@ describe("completeOnboarding (transactional delegation)", () => {
       p_user_id: "user-1",
       p_account_type: "contributor",
       p_org_name: null,
+      p_wallet_address: "0x1111111111111111111111111111111111111111",
     });
     expect(h.tables).toEqual([]);
     expect(result.account_type).toBe("contributor");
@@ -115,7 +120,10 @@ describe("completeOnboarding (transactional delegation)", () => {
 
   it("does not swallow RPC errors", async () => {
     h.response = { data: null, error: { code: "22023", message: "bad input" } };
-    const choice = onboardingBodySchema.parse({ account_type: "contributor" });
+    const choice = onboardingBodySchema.parse({
+      account_type: "contributor",
+      wallet_address: "0x1111111111111111111111111111111111111111",
+    });
 
     await expect(completeOnboarding("user-1", choice)).rejects.toBeInstanceOf(HttpError);
     await expect(completeOnboarding("user-1", choice)).rejects.toMatchObject({

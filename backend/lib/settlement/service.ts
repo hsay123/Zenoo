@@ -2,7 +2,7 @@
  * Settlement orchestration (mock).
  *
  * Phase 6: settlement of accepted tasks is recorded against the real
- * JobEscrow contract only when `JOB_ESCROW_ADDRESS` + `MONAD_RPC_URL` are
+ * JobEscrow contract only when `JOB_ESCROW_ADDRESS` + `RPC_URL` are
  * configured. In every demo/dev environment the `MockSettlementService`
  * produces a deterministic mock transaction hash and sets `is_mock = true`.
  *
@@ -113,7 +113,7 @@ export class MockSettlementService implements SettlementService {
 export const mockSettlementService = new MockSettlementService();
 
 /**
- * Chain settlement when `JOB_ESCROW_ADDRESS` + `MONAD_RPC_URL` +
+ * Chain settlement when `JOB_ESCROW_ADDRESS` + `RPC_URL` +
  * `SETTLEMENT_PRIVATE_KEY` are all configured **and** the fail-closed preflight
  * passes, otherwise the mock. Selected lazily (not at import time) so tests can
  * inject their own service.

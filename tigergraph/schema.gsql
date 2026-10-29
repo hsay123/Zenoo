@@ -1,0 +1,25 @@
+# Zeno integrity graph (HHG F6.2) — TigerGraph schema.
+#
+# Every type is prefixed Zeno/ZENO_ so it cannot clash with other graphs in
+# the same workspace (e.g. the Transaction_Fraud sample defines `Account`).
+# Only ids, wallet addresses and label-content hashes are stored: no buyer
+# data, no emails, no media. Loaded by backend/lib/integrity/tigergraph.ts
+# through REST++ upserts; queried by queries.gsql. Directed edges carry
+# reverse edges so the queries can traverse them both ways.
+
+USE GLOBAL
+
+CREATE VERTEX ZenoAccount (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX ZenoWallet (PRIMARY_ID address STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX ZenoJob (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX ZenoAsset (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX ZenoSubmission (PRIMARY_ID id STRING, content_hash STRING, has_content BOOL, status STRING) WITH primary_id_as_attribute="true"
+
+CREATE UNDIRECTED EDGE ZENO_USES_WALLET (FROM ZenoAccount, TO ZenoWallet, how STRING)
+CREATE DIRECTED EDGE ZENO_OWNS_JOB (FROM ZenoAccount, TO ZenoJob) WITH REVERSE_EDGE="reverse_ZENO_OWNS_JOB"
+CREATE DIRECTED EDGE ZENO_SUBMITTED (FROM ZenoAccount, TO ZenoSubmission) WITH REVERSE_EDGE="reverse_ZENO_SUBMITTED"
+CREATE DIRECTED EDGE ZENO_ON_ASSET (FROM ZenoSubmission, TO ZenoAsset) WITH REVERSE_EDGE="reverse_ZENO_ON_ASSET"
+CREATE DIRECTED EDGE ZENO_FOR_JOB (FROM ZenoSubmission, TO ZenoJob) WITH REVERSE_EDGE="reverse_ZENO_FOR_JOB"
+CREATE DIRECTED EDGE ZENO_REVIEWED (FROM ZenoAccount, TO ZenoSubmission) WITH REVERSE_EDGE="reverse_ZENO_REVIEWED"
+
+CREATE GRAPH Zeno (ZenoAccount, ZenoWallet, ZenoJob, ZenoAsset, ZenoSubmission, ZENO_USES_WALLET, ZENO_OWNS_JOB, reverse_ZENO_OWNS_JOB, ZENO_SUBMITTED, reverse_ZENO_SUBMITTED, ZENO_ON_ASSET, reverse_ZENO_ON_ASSET, ZENO_FOR_JOB, reverse_ZENO_FOR_JOB, ZENO_REVIEWED, reverse_ZENO_REVIEWED)

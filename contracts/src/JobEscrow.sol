@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @dev The subset of ERC-20 the escrow calls. USDC on Base has 6 decimals.
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
 /**
  * @title JobEscrow
- * @notice Native-MON escrow for Zeno annotation jobs on Monad testnet.
+ * @notice ERC-20 (USDC) escrow for Zeno annotation jobs on Base.
+ *
+ * @dev The token is fixed at deploy time. Every amount is in the token's base
+ *      units (USDC: 6 decimals, so 1 USDC = 1_000_000). No function is payable:
+ *      native value is rejected.
  *
  * @dev The platform database stays the source of truth for task/annotation
  *      state; the chain enforces only the money rules:
@@ -22,6 +33,7 @@ pragma solidity ^0.8.24;
  *                     escrow. Never a relayer unless explicitly set later.
  *        - relayer  : the backend signer (`SETTLEMENT_PRIVATE_KEY`), server-only.
  *        - buyer    : the first caller of {fundJob} for a job; may top it up.
+ *                     It must first `approve` this contract for the amount.
  *
  *      Closure rule: {settle} remains callable after {closeJob} so already
  *      accepted obligations can still be paid. The platform must therefore
@@ -32,8 +44,8 @@ pragma solidity ^0.8.24;
 contract JobEscrow {
     struct Job {
         address buyer; // first funder; only this address may add funds
-        uint256 budget; // total native MON deposited
-        uint256 paid; // total native MON settled
+        uint256 budget; // total token units deposited
+        uint256 paid; // total token units settled
         bool open; // false once closeJob() is called
         bool exists;
     }
@@ -41,13 +53,17 @@ contract JobEscrow {
     /// @notice Deployer/admin; may manage relayers, close jobs and withdraw.
     address public owner;
 
+    /// @notice The ERC-20 this escrow holds and pays out (USDC).
+    IERC20 public immutable token;
+
     /// @notice Settlement ABI/behaviour revision. The backend settlement
     ///         preflight refuses any escrow that does not report this exact
     ///         value, so a stale or unexpected deployment (one that merely
     ///         happens to expose `owner`/`relayers`) can never receive real
     ///         payouts. Bump this whenever the settlement interface changes and
     ///         the backend's expected value in tandem.
-    uint256 public constant SETTLEMENT_ABI_VERSION = 2;
+    ///         v3: ERC-20 token escrow (was native MON in v2).
+    uint256 public constant SETTLEMENT_ABI_VERSION = 3;
 
     /// @notice Backend signer(s) allowed to call {settle}.
     mapping(address => bool) public relayers;
@@ -87,6 +103,8 @@ contract JobEscrow {
     error NothingToWithdraw();
     error Reentrancy();
     error IdenticalOwnerAndRelayer();
+    error TokenNotContract();
+    error UnexpectedTokenBalance();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -117,11 +135,16 @@ contract JobEscrow {
     /**
      * @param initialOwner  admin address (manages relayers / closes jobs)
      * @param relayer       backend settlement signer (server-only)
+     * @param token_        ERC-20 to escrow (USDC on Base / Base Sepolia)
      */
-    constructor(address initialOwner, address relayer) {
-        if (initialOwner == address(0) || relayer == address(0)) revert ZeroAddress();
+    constructor(address initialOwner, address relayer, address token_) {
+        if (initialOwner == address(0) || relayer == address(0) || token_ == address(0)) {
+            revert ZeroAddress();
+        }
         if (initialOwner == relayer) revert IdenticalOwnerAndRelayer();
+        if (token_.code.length == 0) revert TokenNotContract();
         owner = initialOwner;
+        token = IERC20(token_);
         relayers[relayer] = true;
         emit OwnershipTransferred(address(0), initialOwner);
         emit RelayerSet(relayer, true);
@@ -149,13 +172,18 @@ contract JobEscrow {
     // ---------------------------------------------------------------
 
     /**
-     * @notice Deposit native MON against a job. The caller is the funder.
+     * @notice Deposit tokens against a job. The caller is the funder and must
+     *         have approved this contract for `amount` first.
      * @dev The first caller becomes the job's `buyer` and may top it up; any
-     *      other address is rejected so audit records cannot be spoofed.
-     * @param jobId keccak256 of the platform job id.
+     *      other address is rejected so audit records cannot be spoofed. The
+     *      budget is credited only with what actually arrived, and only if that
+     *      equals `amount`, so a fee-on-transfer or misbehaving token can never
+     *      inflate a job's budget.
+     * @param jobId  keccak256 of the platform job id.
+     * @param amount token base units (USDC: 6 decimals).
      */
-    function fundJob(bytes32 jobId) external payable {
-        if (msg.value == 0) revert ZeroAmount();
+    function fundJob(bytes32 jobId, uint256 amount) external nonReentrant {
+        if (amount == 0) revert ZeroAmount();
 
         Job storage job = jobs[jobId];
         if (!job.exists) {
@@ -167,8 +195,12 @@ contract JobEscrow {
             if (job.buyer != msg.sender) revert NotBuyer();
         }
 
-        job.budget += msg.value;
-        emit JobFunded(jobId, msg.sender, msg.value);
+        uint256 before = token.balanceOf(address(this));
+        _safeCall(abi.encodeCall(IERC20.transferFrom, (msg.sender, address(this), amount)));
+        if (token.balanceOf(address(this)) - before != amount) revert UnexpectedTokenBalance();
+
+        job.budget += amount;
+        emit JobFunded(jobId, msg.sender, amount);
     }
 
     // ---------------------------------------------------------------
@@ -198,7 +230,7 @@ contract JobEscrow {
     function settle(
         bytes32 jobId,
         bytes32 taskId,
-        address payable payee,
+        address payee,
         uint256 amount,
         bytes32 annotationHash
     ) external onlyRelayer nonReentrant {
@@ -216,8 +248,7 @@ contract JobEscrow {
         settled[key] = true;
         job.paid += amount;
 
-        (bool ok,) = payee.call{value: amount}("");
-        if (!ok) revert TransferFailed();
+        _safeCall(abi.encodeCall(IERC20.transfer, (payee, amount)));
 
         emit TaskSettled(jobId, taskId, payee, amount, annotationHash);
     }
@@ -227,7 +258,7 @@ contract JobEscrow {
     // ---------------------------------------------------------------
 
     /// @notice Reclaim a closed job's unspent escrow (owner only).
-    function withdraw(bytes32 jobId, address payable to) external onlyOwner nonReentrant {
+    function withdraw(bytes32 jobId, address to) external onlyOwner nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         Job storage job = jobs[jobId];
         if (!job.exists) revert JobNotFound();
@@ -237,10 +268,21 @@ contract JobEscrow {
         if (remaining == 0) revert NothingToWithdraw();
 
         job.budget = job.paid;
-        (bool ok,) = to.call{value: remaining}("");
-        if (!ok) revert TransferFailed();
+        _safeCall(abi.encodeCall(IERC20.transfer, (to, remaining)));
 
         emit JobWithdrawn(jobId, to, remaining);
+    }
+
+    // ---------------------------------------------------------------
+    // Token transfer
+    // ---------------------------------------------------------------
+
+    /// @dev Call the token and revert unless it succeeded: the call must not
+    ///      revert, and if it returns data that data must decode to `true`.
+    ///      Covers tokens that return `false` instead of reverting.
+    function _safeCall(bytes memory data) private {
+        (bool ok, bytes memory ret) = address(token).call(data);
+        if (!ok || (ret.length != 0 && !abi.decode(ret, (bool)))) revert TransferFailed();
     }
 
     // ---------------------------------------------------------------

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Check } from "@/components/ui/icons";
+import { appChain } from "@/lib/privy/config";
 
 /**
  * Authentication form (login or signup).
@@ -45,7 +46,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
       <div className="flex items-center gap-2 border-t border-line pt-5 text-caption text-ink-4">
         <Check aria-hidden className="h-3.5 w-3.5 text-accent-600" />
-        Secured by Privy · Monad testnet
+        Secured by Privy · {appChain.name}
       </div>
     </div>
   );
