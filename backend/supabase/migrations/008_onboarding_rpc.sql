@@ -138,6 +138,6 @@ END;
 $$;
 
 -- Only the server-side service role may call it; never anon/authenticated.
-REVOKE ALL ON FUNCTION complete_onboarding(uuid, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION complete_onboarding(uuid, text, text) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION complete_onboarding(uuid, text, text) TO service_role;
+REVOKE ALL ON FUNCTION complete_onboarding(uuid, text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION complete_onboarding(uuid, text, text, text) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION complete_onboarding(uuid, text, text, text) TO service_role;

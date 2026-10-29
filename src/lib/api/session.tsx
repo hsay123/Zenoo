@@ -77,6 +77,9 @@ export function SessionFrame({ children }: { children: ReactNode }) {
   );
 }
 
+/** How long sign-in may take to initialise before the gate offers a reload. */
+const SESSION_SLOW_MS = 15_000;
+
 export function SessionGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { ready, authenticated, logout } = usePrivy();
@@ -84,6 +87,15 @@ export function SessionGate({ children }: { children: ReactNode }) {
 
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Privy loads from its own servers; on a bad connection it may never become
+  // ready. After a while, say so and offer a reload instead of spinning forever.
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (ready) return;
+    const timer = window.setTimeout(() => setSlow(true), SESSION_SLOW_MS);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
 
   // Not signed in → back to the sign-in screen.
   useEffect(() => {
@@ -137,6 +149,16 @@ export function SessionGate({ children }: { children: ReactNode }) {
     return (
       <SessionFrame>
         <p className="text-body text-ink-2">Verifying your session…</p>
+        {slow && !ready && (
+          <div className="mt-6">
+            <p role="status" className="text-body-sm text-ink-3">
+              This is taking longer than usual. Check your connection and reload.
+            </p>
+            <Button className="mt-4" onClick={() => window.location.reload()}>
+              Reload
+            </Button>
+          </div>
+        )}
       </SessionFrame>
     );
   }

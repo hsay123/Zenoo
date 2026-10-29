@@ -11,7 +11,7 @@ import { Check } from "@/components/ui/icons";
 import { formatTimecode } from "@/lib/utils/format";
 import {
   platformPaths,
-  reviewSchema,
+  reviewDecisionResultSchema,
   type BoundingBox,
   type PlatformError,
   type Review,
@@ -134,8 +134,8 @@ export function ReviewConsole({ taskId }: { taskId: string }) {
 
   const decide = async () => {
     if (!item) return;
-    const review = await run((client) =>
-      client.post(reviewSchema, platformPaths.reviewDecision(item.id), {
+    const result = await run((client) =>
+      client.post(reviewDecisionResultSchema, platformPaths.reviewDecision(item.id), {
         body: {
           decision,
           reason_code: reasonCode,
@@ -145,8 +145,8 @@ export function ReviewConsole({ taskId }: { taskId: string }) {
         idempotencyKey: `review:${item.id}`,
       }),
     );
-    if (review) {
-      setDone(review);
+    if (result) {
+      setDone(result.review);
       queue.reload();
     }
   };
