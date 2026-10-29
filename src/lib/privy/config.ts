@@ -53,3 +53,9 @@ export const appChain =
   process.env.NEXT_PUBLIC_CHAIN_ID === String(base.id)
     ? CHAINS_BY_ID[base.id]
     : CHAINS_BY_ID[baseSepolia.id];
+
+/** Circle's USDC on the configured chain (6 decimals), for balance display. */
+export const appUsdc =
+  appChain.id === base.id
+    ? "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+    : "0x036CbD53842c5426634e7929541eC2318f3dCF7e";

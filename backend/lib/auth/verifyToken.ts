@@ -229,6 +229,19 @@ export async function verifyPrivyToken(
  * Best-effort email and wallet for a Privy user: only with a real secret
  * (network call, rate-limited); otherwise DID only, per OQ1–OQ3.
  */
+/**
+ * Every wallet linked to a Privy user (embedded and external), lowercase.
+ * Used to prove an address belongs to the caller before sending it anything.
+ */
+export async function fetchPrivyWallets(appId: string, appSecret: string, privyDid: string): Promise<string[]> {
+  if (!appId || !appSecret) return [];
+  const user = await getPrivyClient(appId, appSecret).getUserById(privyDid);
+  const accounts = (user as unknown as { linkedAccounts?: Array<{ type?: string; address?: string }> }).linkedAccounts ?? [];
+  return accounts
+    .filter((a) => a.type === "wallet" && typeof a.address === "string")
+    .map((a) => (a.address as string).toLowerCase());
+}
+
 export async function fetchPrivyProfile(
   appId: string,
   appSecret: string,

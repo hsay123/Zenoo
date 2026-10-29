@@ -275,6 +275,30 @@ export type RoyaltyDemo = z.infer<typeof royaltyDemoSchema>;
 export const fundIntentSchema = z.object({ job: jobSchema }).passthrough();
 
 /** POST /api/jobs/{id}/fund/checkout */
+export const treasuryStatusSchema = z.object({
+  configured: z.boolean(),
+  reason: z.string().nullable(),
+  address: z.string().nullable(),
+  usdc: z.string().nullable(),
+  gas_wei: z.string().nullable(),
+  warnings: z.array(z.string()),
+});
+
+export const meSyncSchema = z.object({
+  email: z.string().nullable(),
+  wallet_address: z.string().nullable(),
+  linked_wallets: z.array(z.string()),
+});
+export const payoutWalletSchema = z.object({ wallet_address: z.string() });
+
+export const faucetGrantSchema = z.object({
+  usdc_units: z.string(),
+  gas_wei: z.string(),
+  usdc_tx_hash: z.string().nullable(),
+  gas_tx_hash: z.string().nullable(),
+  already_funded: z.boolean(),
+});
+
 export const fundCheckoutSchema = z.object({
   payment_id: z.string(),
   checkout_url: z.string().url(),
@@ -795,6 +819,11 @@ export const platformPaths = {
   fundJob: (id: string) => `/api/jobs/${id}/fund`,
   fundJobConfirm: (id: string) => `/api/jobs/${id}/fund/confirm`,
   fundJobCheckout: (id: string) => `/api/jobs/${id}/fund/checkout`,
+  fundJobFaucet: (id: string) => `/api/jobs/${id}/faucet`,
+  meSync: () => "/api/me/sync",
+  mePayoutWallet: () => "/api/me/payout-wallet",
+  meGas: () => "/api/me/gas",
+  adminTreasury: () => "/api/admin/treasury",
   royaltyDemo: () => "/api/demo/royalty",
   integrityFlags: (status = "open") => `/api/admin/integrity/flags?status=${status}`,
   integrityFlag: (id: string) => `/api/admin/integrity/flags/${id}`,

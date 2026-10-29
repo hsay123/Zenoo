@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, Fragment, useRef } from "react";
-import { useCreateWallet, usePrivy } from "@privy-io/react-auth";
+import { useCreateWallet, useLinkAccount, usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Check, Info, AlertTriangle, Clock, ChevronDown, Users } from "@/components/ui/icons";
 import { cn } from "@/lib/utils/cn";
 import { useSession } from "@/lib/api/session";
+import { meSyncSchema, platformPaths } from "@/lib/api/platform";
 import {
   createSubmitGuard,
   describeSelection,
@@ -63,6 +64,10 @@ export function OnboardingFlow() {
   // after login, so a contributor without one yet has it created here.
   const { user } = usePrivy();
   const { createWallet } = useCreateWallet();
+  // Wallet sign-ins have no email; companies can add one (optional) for card
+  // receipts and alerts. The backend picks it up from Privy on onboarding.
+  const { linkEmail } = useLinkAccount();
+  const signInEmail = user?.email?.address ?? null;
   const walletAddress = user?.wallet?.address;
 
   const [selected, setSelected] = useState<"buyer" | "contributor" | null>(null);
@@ -120,6 +125,8 @@ export function OnboardingFlow() {
         .then((result) => {
           if (!result) return; // a request was already in flight
           if (result.status === "success") {
+            // Pick up an email or wallet linked during onboarding (best effort).
+            void client.post(meSyncSchema, platformPaths.meSync()).catch(() => undefined);
             setStep("success");
             window.setTimeout(() => {
               window.location.href = result.redirect;
@@ -355,6 +362,23 @@ export function OnboardingFlow() {
                       This name identifies your organization on Zeno. You can change it later
                       in the buyer workspace settings.
                     </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-line bg-surface-muted p-4 text-body-sm">
+                  {signInEmail ? (
+                    <p className="text-ink-3">
+                      Receipts and alerts go to <span className="text-ink">{signInEmail}</span>.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-ink-3">
+                        Email <span className="text-ink-4">(optional)</span>: for card receipts and account alerts.
+                      </p>
+                      <Button size="sm" variant="secondary" type="button" onClick={() => linkEmail()}>
+                        Add an email
+                      </Button>
+                    </div>
                   )}
                 </div>
 
