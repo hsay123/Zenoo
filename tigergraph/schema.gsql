@@ -6,6 +6,8 @@
 #
 #   gsql schema.gsql      (then: gsql queries.gsql)
 
+USE GLOBAL
+
 CREATE VERTEX Account (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
 CREATE VERTEX Wallet (PRIMARY_ID address STRING) WITH primary_id_as_attribute="true"
 CREATE VERTEX LabelJob (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
