@@ -127,11 +127,15 @@ export async function submitOnboarding(
     if (issue) return { status: "error", message: issue };
   }
 
-  // Both buyers and contributors must provide a wallet address
-  if (!choice.wallet_address) {
-    return { status: "error", message: `wallet_address is required for ${choice.account_type === "buyer" ? "funding" : "payouts"}` };
+  // Contributors are paid to a wallet, so they must have one (as the backend
+  // requires). Buyers may fund by wallet or card, so theirs is optional.
+  if (choice.account_type === "contributor" && !choice.wallet_address) {
+    return {
+      status: "error",
+      message: "Your payout wallet is still being set up. Wait a moment and try again.",
+    };
   }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(choice.wallet_address)) {
+  if (choice.wallet_address && !/^0x[0-9a-fA-F]{40}$/.test(choice.wallet_address)) {
     return { status: "error", message: "wallet_address must be a valid Ethereum address (0x...)" };
   }
 
@@ -143,7 +147,7 @@ export async function submitOnboarding(
         body: {
           account_type: choice.account_type,
           ...(organizationName ? { organization_name: organizationName } : {}),
-          wallet_address: choice.wallet_address,
+          ...(choice.wallet_address ? { wallet_address: choice.wallet_address } : {}),
         },
       },
     );

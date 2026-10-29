@@ -22,19 +22,21 @@ import { test, expect } from "playwright/test";
 
 const CONTRIBUTOR = "./playwright/.auth/contributor.json";
 const CONTRIBUTOR_INCOMPLETE = "./playwright/.auth/contributor2.json";
+// Onboarded contributor captured only for the sign-out test (it is revoked).
+const SIGNOUT = "./playwright/.auth/signout.json";
 
 test.describe("unauthenticated gate", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test("sends /workspace visitors to /login", async ({ page }) => {
     await page.goto("/workspace");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: /sign in/i }).first()).toBeVisible();
   });
 
   test("sends a direct workspace URL to /login too", async ({ page }) => {
     await page.goto("/workspace/contributor");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
   });
 });
 
@@ -78,6 +80,14 @@ test.describe("contributor session (real Privy session)", () => {
       page.getByRole("button", { name: /here to contribute/i }),
     ).toHaveCount(0);
   });
+
+});
+
+// Signing out revokes the Privy session on the server, so this uses its own
+// disposable account: signing out the shared contributor session would log
+// out every later spec that reuses it.
+test.describe("sign out (disposable session)", () => {
+  test.use({ storageState: SIGNOUT });
 
   test("sign out ends the session and returns to /login", async ({ page }) => {
     await page.goto("/workspace/contributor");

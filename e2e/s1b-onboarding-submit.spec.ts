@@ -67,7 +67,11 @@ test.describe("first-time onboarding (fresh account)", () => {
     // Exactly one request, carrying exactly the contributor choice, confirmed.
     await page.waitForTimeout(1500);
     expect(onboardingPosts).toHaveLength(1);
-    expect(onboardingPosts[0].body).toEqual({ account_type: "contributor" });
+    // The signed-in wallet is sent as the payout address.
+    expect(onboardingPosts[0].body).toEqual({
+      account_type: "contributor",
+      wallet_address: account.address,
+    });
     expect(onboardingPosts[0].status).toBe(200);
 
     // The choice persisted: a reload keeps the account out of onboarding.
@@ -128,6 +132,7 @@ test.describe("first-time onboarding (fresh account)", () => {
     expect(onboardingPosts[0].body).toEqual({
       account_type: "buyer",
       organization_name: org,
+      wallet_address: account.address,
     });
     expect(onboardingPosts[0].status).toBe(200);
 

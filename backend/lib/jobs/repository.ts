@@ -32,7 +32,9 @@ export function toJob(row: JobRow): Job {
     updated_at: row.updated_at as string,
     // Funding fields
     funding_status: row.funding_status as Job["funding_status"],
-    funded_amount: (row.funded_amount as string | null) ?? null,
+    // NUMERIC comes back from PostgREST as a JSON number (e.g. the default 0);
+    // normalise to the decimal-string form, like reward_per_task and budget.
+    funded_amount: row.funded_amount == null ? null : String(row.funded_amount),
     funding_tx_hash: (row.funding_tx_hash as string | null) ?? null,
     funding_wallet_address: (row.funding_wallet_address as string | null) ?? null,
     funded_at: (row.funded_at as string | null) ?? null,

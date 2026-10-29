@@ -16,6 +16,7 @@
 import { getSupabase } from "@/lib/db/supabase";
 import { HttpError } from "@/lib/api/errors";
 import { hashCanonicalJson } from "@/lib/hash";
+import { emitZenoEvent } from "@/lib/notify/viasocket";
 import {
   loadTask,
   toTask,
@@ -328,6 +329,14 @@ async function finalizeSettlement(
     assertLegalTransition(task.status, "paid");
     await updateTaskStatus(row.task_id, "paid");
     await incrementTasksCompleted(row.contributor_id);
+    emitZenoEvent("payout.settled", {
+      receipt_id: receipt.id,
+      job_id: row.job_id,
+      task_id: row.task_id,
+      amount_usdc: row.amount,
+      tx_hash: result.tx_hash,
+      is_mock: result.is_mock,
+    });
   }
 
   return receipt;

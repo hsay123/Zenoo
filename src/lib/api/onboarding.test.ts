@@ -193,7 +193,7 @@ describe("submitOnboarding", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("refuses a buyer with no wallet address without sending a request", async () => {
+  it("submits a buyer without a wallet address (buyers may fund by card)", async () => {
     const { client, calls } = fakeClient({
       onboarding_completed: true,
       redirect: "/workspace/buyer",
@@ -203,8 +203,10 @@ describe("submitOnboarding", () => {
       organization_name: "Acme AI",
       wallet_address: "",
     });
-    expect(result).toEqual({ status: "error", message: "wallet_address is required for funding" });
-    expect(calls).toHaveLength(0);
+    expect(result).toEqual({ status: "success", redirect: "/workspace/buyer" });
+    expect(calls).toEqual([
+      { path: "/api/onboarding/complete", body: { account_type: "buyer", organization_name: "Acme AI" } },
+    ]);
   });
 
   it("refuses a contributor with no wallet address without sending a request", async () => {
@@ -218,7 +220,7 @@ describe("submitOnboarding", () => {
     });
     expect(result).toEqual({
       status: "error",
-      message: "wallet_address is required for payouts",
+      message: "Your payout wallet is still being set up. Wait a moment and try again.",
     });
     expect(calls).toHaveLength(0);
   });

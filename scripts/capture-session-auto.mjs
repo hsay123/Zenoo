@@ -136,6 +136,9 @@ try {
   await page.getByText(/continue with a wallet/i).first().click({ timeout: 15_000 });
   await page.waitForTimeout(1000);
 
+  // Privy lists popular wallets first; the injected test wallet is found by search.
+  await page.getByPlaceholder(/search/i).fill("Brave");
+  await page.waitForTimeout(1000);
   await page.getByText(/brave wallet/i).first().click({ timeout: 15_000 });
 
   await page.waitForURL(

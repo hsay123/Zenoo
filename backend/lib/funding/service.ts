@@ -31,6 +31,7 @@ import {
   type DodoPayment,
 } from "@/lib/funding/dodo";
 import { createTreasuryFunder, type TreasuryFunder } from "@/lib/funding/treasury";
+import { emitZenoEvent } from "@/lib/notify/viasocket";
 
 export type PaymentStatus = "created" | "paid" | "funding" | "funded" | "failed";
 
@@ -383,4 +384,10 @@ async function markFunded(
     .eq("id", row.job_id)
     .eq("funding_status", "pending");
   if (error) throw HttpError.internal(`Failed to mark job funded: ${error.message}`);
+  emitZenoEvent("job.funded", {
+    job_id: row.job_id,
+    amount_usdc: fromTokenUnits(amount),
+    tx_hash: txHash,
+    method: "card",
+  });
 }

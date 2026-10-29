@@ -133,7 +133,7 @@ Sepolia funds a job, settles one accepted task, and shows the transaction on the
 
 | ID | Requirement |
 | --- | --- |
-| F6.1 | Socket GitHub app or CLI scans the repo's dependencies. |
+| F6.1 | viaSocket (HHG sponsor): Zeno events (funded, reviewed, paid, flagged) go to a viaSocket flow via webhook. *(Changed 2026-10-29 from Socket.dev dependency scanning.)* |
 | F6.2 | TigerGraph: flag accounts sharing wallets, devices or near-identical submissions (if time allows). |
 | F6.3 | Cake Wallet shown as a supported payout wallet in onboarding. |
 

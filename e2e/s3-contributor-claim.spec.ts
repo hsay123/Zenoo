@@ -24,7 +24,9 @@ import { api, createPublishedJob, tokenFrom, type Fixture } from "./helpers/plat
 
 const BUYER = "./playwright/.auth/buyer.json";
 const CONTRIBUTOR = "./playwright/.auth/contributor.json";
-const CONTRIBUTOR2 = "./playwright/.auth/contributor2.json";
+// A second onboarded, Trusted contributor: contributor2 is deliberately
+// unfinished (tier New), so the server would refuse it with 403, not race it.
+const CONTRIBUTOR3 = "./playwright/.auth/contributor3.json";
 
 const stamp = Date.now();
 const fixture: Fixture & { task0?: string; task1?: string } = {
@@ -94,7 +96,7 @@ test.describe("contributor claim + annotate", () => {
         headers: { "idempotency-key": `race-a:${fixture.task1}` },
       }),
       api(`/api/tasks/${fixture.task1}/claim`, {
-        token: tokenFrom(CONTRIBUTOR2),
+        token: tokenFrom(CONTRIBUTOR3),
         method: "POST",
         headers: { "idempotency-key": `race-b:${fixture.task1}` },
       }),

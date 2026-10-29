@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, Fragment, useRef } from "react";
+import { useCreateWallet, usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Check, Info, AlertTriangle, Clock, ChevronDown, Users } from "@/components/ui/icons";
@@ -57,6 +58,12 @@ type Step = "choose" | "org-name" | "submitting" | "success" | "error";
 
 export function OnboardingFlow() {
   const { client } = useSession();
+  // The signed-in Privy wallet (external, or the embedded one Privy creates on
+  // login) is the contributor's payout address. Email sign-ins get theirs just
+  // after login, so a contributor without one yet has it created here.
+  const { user } = usePrivy();
+  const { createWallet } = useCreateWallet();
+  const walletAddress = user?.wallet?.address;
 
   const [selected, setSelected] = useState<"buyer" | "contributor" | null>(null);
   const [orgName, setOrgName] = useState("");
@@ -97,12 +104,19 @@ export function OnboardingFlow() {
       setStep("submitting");
 
       void guard
-        .run(() =>
-          submitOnboarding(client, {
+        .run(async () => {
+          let wallet = walletAddress;
+          if (!wallet && accountType === "contributor") {
+            wallet = await createWallet()
+              .then((created) => created.address)
+              .catch(() => undefined);
+          }
+          return submitOnboarding(client, {
             account_type: accountType,
             organization_name: accountType === "buyer" ? orgName.trim() : undefined,
-          }),
-        )
+            wallet_address: wallet,
+          });
+        })
         .then((result) => {
           if (!result) return; // a request was already in flight
           if (result.status === "success") {
@@ -116,7 +130,7 @@ export function OnboardingFlow() {
           }
         });
     },
-    [client, orgName],
+    [client, orgName, walletAddress, createWallet],
   );
 
   const handleSubmit = () => {

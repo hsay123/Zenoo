@@ -28,6 +28,7 @@ import {
   type ReviewQueueFilters,
 } from "@/lib/review/repository";
 import { after } from "next/server";
+import { emitZenoEvent } from "@/lib/notify/viasocket";
 import type { AiReviewInput, AiReviewer } from "@/lib/review/mockAiReviewer";
 import {
   AI_REVIEW_TIMEOUT_MS,
@@ -314,6 +315,14 @@ export async function decideSubmission(
   });
 
   await updateTaskStatus(task.id, next);
+  emitZenoEvent("review.decided", {
+    submission_id: submission.id,
+    task_id: task.id,
+    job_id: task.job_id,
+    decision: input.decision,
+    reason_code: input.reasonCode ?? null,
+    reviewer_type: "human",
+  });
   return review;
 }
 

@@ -155,6 +155,10 @@ const envSchema = z.object({
   // A pay-what-you-want product created in the Dodo dashboard; each checkout
   // overrides its amount with the job's total.
   DODO_PRODUCT_ID: z.string().optional(),
+  // viaSocket (HHG sponsor): a flow's webhook trigger URL. Unset = no events.
+  VIASOCKET_WEBHOOK_URL: z.string().url("VIASOCKET_WEBHOOK_URL must be a valid URL").optional(),
+  // Optional HMAC secret; signs each event as x-zeno-signature: sha256=<hex>.
+  VIASOCKET_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

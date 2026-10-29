@@ -482,6 +482,16 @@ export type Job = z.infer<typeof jobSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type ClaimResult = z.infer<typeof claimResultSchema>;
 export type Receipt = z.infer<typeof receiptSchema>;
+
+/**
+ * POST /api/reviews/{id}/decision answers `{ review, receipt }`: an accepted
+ * submission on a funded job is settled straight away, and `receipt` is that
+ * payout's receipt (null otherwise, or if settlement is retried later).
+ */
+export const reviewDecisionResultSchema = z.object({
+  review: reviewSchema,
+  receipt: receiptSchema.nullable(),
+});
 export type EarningsSummary = z.infer<typeof earningsSummarySchema>;
 export type UploadUrlResult = z.infer<typeof uploadUrlResultSchema>;
 export type Submission = z.infer<typeof submissionSchema>;
