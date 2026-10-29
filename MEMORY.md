@@ -118,6 +118,12 @@ To finish:
 6. After the hackathon: **rotate every secret that was pasted in chat** (Privy, Supabase service
    role, Anthropic, Dodo key + webhook secret, viaSocket embed secret, TigerGraph secret).
 7. Landing page: the faint "Pre-labelling Agent" graphic is the user's own (keep).
+9. **Gold (qualification) tasks are consumed** when submitted (each one serves one contributor).
+   Live pool: job `19e22649-724c-4ff0-9705-bb81c808b578` "Qualification: box the cup, red block and blue
+   block" (30 gold tasks from `e2e/fixtures/qualification/qual-*.png` + `gold-answers.json`; a few used
+   by e2e). New contributors (tier New) can ONLY claim gold tasks; Verified needs 5 passes at ≥80%.
+   Top it up with the admin API (`POST /api/jobs/{id}/tasks {asset_ids, is_gold:true, gold_answer}`)
+   or, better, make gold tasks reusable per contributor.
 8. UX: Contributor → Available tasks shows task/job **ids**; show the job title, reward and labels instead (backend `GET /api/tasks/available` + `src/components/product/*Tasks*`). The workspace itself works for images (box drawing) and video (timeline segments).
 
 ## 6. How to run and check
