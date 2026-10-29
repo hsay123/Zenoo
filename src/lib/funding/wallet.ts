@@ -108,3 +108,18 @@ export function friendlyWalletError(cause: unknown): string | null {
   if (/user rejected|denied|cancel/i.test(text)) return "The wallet request was cancelled.";
   return null;
 }
+
+/** "1.25" → 1250000 USDC base units (6 decimals), exactly, without floats. */
+export function parseUsdcUnits(input: string): bigint {
+  const text = input.trim();
+  if (!/^\d+(\.\d{1,6})?$/.test(text)) throw new WalletTxError("Enter an amount like 1.25 (up to 6 decimals).");
+  const [whole, frac = ""] = text.split(".");
+  return BigInt(whole) * BigInt(1_000_000) + BigInt(frac.padEnd(6, "0"));
+}
+
+/** ERC-20 transfer(to, amount) calldata. */
+export function erc20TransferData(to: string, units: bigint): string {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(to)) throw new WalletTxError("Enter a valid 0x… wallet address.");
+  if (units <= BigInt(0)) throw new WalletTxError("Enter an amount above zero.");
+  return `0xa9059cbb${to.toLowerCase().slice(2).padStart(64, "0")}${units.toString(16).padStart(64, "0")}`;
+}

@@ -32,6 +32,7 @@ export const MAX_USDC_PER_DAY = BigInt(5_000_000); // 5 test USDC per account
 /** Approve + fundJob cost about 1.5e12 wei on Base Sepolia; this covers several. */
 export const GAS_GRANT_WEI = BigInt("10000000000000"); // 0.00001 ETH
 export const GAS_ENOUGH_WEI = BigInt("5000000000000"); // 0.000005 ETH
+export const MAX_GAS_GRANTS_PER_DAY = 3;
 
 export interface GrantPlan {
   usdcUnits: bigint;
@@ -86,13 +87,20 @@ export async function grantTestFunds(
   const since = new Date((deps.now?.() ?? new Date()).getTime() - 24 * 3600 * 1000).toISOString();
   const { data: grants, error } = await getSupabase()
     .from("faucet_grants")
-    .select("usdc_units")
+    .select("usdc_units, gas_wei")
     .eq("user_id", input.userId)
     .gte("created_at", since);
   if (error) throw HttpError.internal(`Failed to read faucet grants: ${error.message}`);
   const grantedTodayUnits = (grants ?? []).reduce((sum, g) => sum + BigInt(g.usdc_units as number), BigInt(0));
+  const gasGrantsToday = (grants ?? []).filter((g) => BigInt(String(g.gas_wei)) > BigInt(0)).length;
 
   const plan = planGrant({ needUnits: input.needUnits, balanceUnits, gasWei, grantedTodayUnits });
+  if (plan.gasWei > BigInt(0) && gasGrantsToday >= MAX_GAS_GRANTS_PER_DAY) {
+    if (plan.usdcUnits === BigInt(0)) {
+      throw HttpError.rateLimit("You have used today's free network-fee top-ups. Try again tomorrow.");
+    }
+    plan.gasWei = BigInt(0);
+  }
   const missing = input.needUnits > balanceUnits;
   if (missing && plan.usdcUnits === BigInt(0)) {
     throw HttpError.rateLimit("You have used today's test-USDC allowance (5 USDC). Pay by card, or try tomorrow.");

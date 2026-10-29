@@ -46,3 +46,24 @@ describe("friendlyWalletError", () => {
     expect(friendlyWalletError(new Error("nonce too low"))).toBeNull();
   });
 });
+
+describe("withdraw helpers", () => {
+  it("parses USDC amounts exactly", async () => {
+    const { parseUsdcUnits } = await import("./wallet");
+    expect(parseUsdcUnits("1.25")).toBe(BigInt(1_250_000));
+    expect(parseUsdcUnits("0.000001")).toBe(BigInt(1));
+    expect(parseUsdcUnits("3")).toBe(BigInt(3_000_000));
+    expect(() => parseUsdcUnits("1.2345678")).toThrow();
+    expect(() => parseUsdcUnits("-1")).toThrow();
+    expect(() => parseUsdcUnits("1e3")).toThrow();
+  });
+
+  it("encodes transfer(to, amount)", async () => {
+    const { erc20TransferData } = await import("./wallet");
+    expect(erc20TransferData(OWNER, BigInt(1_000_000))).toBe(
+      `0xa9059cbb000000000000000000000000${OWNER.slice(2).toLowerCase()}${(1_000_000).toString(16).padStart(64, "0")}`,
+    );
+    expect(() => erc20TransferData("0x123", BigInt(1))).toThrow(/valid/);
+    expect(() => erc20TransferData(OWNER, BigInt(0))).toThrow(/above zero/);
+  });
+});
