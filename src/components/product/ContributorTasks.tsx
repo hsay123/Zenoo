@@ -2,15 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAction, useAvailableTasks, useEarnings } from "@/lib/api/live";
+import { useAction, useAvailableTasks, useClientQuery, useEarnings } from "@/lib/api/live";
 import { QueryView, InfoNote, InlineError } from "@/components/product/AsyncView";
 import { WorkspaceHeader, Stat } from "@/components/product/WorkspaceHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { ArrowRight, FileText } from "@/components/ui/icons";
-import { formatDate } from "@/lib/utils/format";
-import { claimResultSchema, platformPaths } from "@/lib/api/platform";
+import { formatDate, formatUsdc } from "@/lib/utils/format";
+import { claimResultSchema, lockedWorkSchema, platformPaths } from "@/lib/api/platform";
 
 /**
  * Contributor task queue.
@@ -119,6 +119,8 @@ export function ContributorTasks() {
         </section>
       ) : null}
 
+      <LockedWork />
+
       <section className="mt-8">
         <h2 className="font-display text-title text-ink">Open tasks</h2>
         <QueryView
@@ -197,5 +199,46 @@ export function ContributorTasks() {
         .
       </InfoNote>
     </>
+  );
+}
+
+/**
+ * Paid work the contributor's tier cannot claim yet, with what unlocks it.
+ * New contributors used to see an empty list with no idea that paid jobs
+ * existed; claiming stays gated server-side exactly as before.
+ */
+function LockedWork() {
+  const query = useClientQuery("locked-work", (client) => client.get(lockedWorkSchema, platformPaths.lockedTasks()));
+  const data = query.status === "ready" ? query.data : null;
+  if (!data || data.locked.length === 0) return null;
+  const tierName = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  return (
+    <section className="mt-8 rounded-xl border border-pending-line bg-pending-bg p-5">
+      <h2 className="font-display text-title text-ink">Paid work waiting for you</h2>
+      <p className="mt-1 text-body-sm text-ink-2">
+        You are <strong>{tierName(data.tier)}</strong>.{" "}
+        {data.next
+          ? `To reach ${tierName(data.next.tier)}: ${data.next.needs.join("; ")}.`
+          : null}{" "}
+        {data.tier === "new" ? "Start with the qualification tasks in Open tasks below." : null}
+      </p>
+      <ul className="mt-4 divide-y divide-pending-line rounded-lg border border-pending-line bg-surface">
+        {data.locked.map((job) => (
+          <li key={job.job_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-medium text-ink">{job.title}</p>
+              <p className="text-caption text-ink-3">
+                {job.modality === "video" ? "Video" : "Image"} · {formatUsdc(job.reward_per_task)} per accepted task ·{" "}
+                {job.open_tasks} open {job.open_tasks === 1 ? "task" : "tasks"}
+                {job.labels.length ? ` · ${job.labels.slice(0, 5).join(", ")}` : ""}
+              </p>
+            </div>
+            <span className="rounded-full border border-pending-line px-2.5 py-1 text-caption text-pending-fg">
+              Unlocks at {tierName(job.unlocks_at)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

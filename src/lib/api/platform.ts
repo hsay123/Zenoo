@@ -275,6 +275,24 @@ export type RoyaltyDemo = z.infer<typeof royaltyDemoSchema>;
 export const fundIntentSchema = z.object({ job: jobSchema }).passthrough();
 
 /** POST /api/jobs/{id}/fund/checkout */
+export const lockedWorkSchema = z.object({
+  tier: z.string(),
+  gating: z.boolean(),
+  next: z.object({ tier: z.string(), needs: z.array(z.string()) }).nullable(),
+  locked: z.array(
+    z.object({
+      job_id: z.string(),
+      title: z.string(),
+      modality: z.string(),
+      reward_per_task: z.string(),
+      labels: z.array(z.string()),
+      open_tasks: z.number(),
+      reason: z.string(),
+      unlocks_at: z.string(),
+    }),
+  ),
+});
+
 export const treasuryStatusSchema = z.object({
   configured: z.boolean(),
   reason: z.string().nullable(),
@@ -824,6 +842,7 @@ export const platformPaths = {
   mePayoutWallet: () => "/api/me/payout-wallet",
   meGas: () => "/api/me/gas",
   adminTreasury: () => "/api/admin/treasury",
+  lockedTasks: () => "/api/tasks/locked",
   royaltyDemo: () => "/api/demo/royalty",
   integrityFlags: (status = "open") => `/api/admin/integrity/flags?status=${status}`,
   integrityFlag: (id: string) => `/api/admin/integrity/flags/${id}`,

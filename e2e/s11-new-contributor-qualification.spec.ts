@@ -29,6 +29,15 @@ test("a fresh contributor claims a gold task, labels it and passes", async ({ pa
   });
   expect(onboard.status, onboard.text).toBe(200);
 
+  // Paid jobs are shown as locked, with what unlocks them, not hidden.
+  await page.goto("/workspace/contributor");
+  await expect(page.getByRole("heading", { name: "Paid work waiting for you" })).toBeVisible({ timeout: 40_000 });
+  await expect(page.getByText("Unlocks at Verified").first()).toBeVisible();
+  await page.screenshot({ path: "test-results/s11-locked-work.png", fullPage: true });
+  const locked = await api("/api/tasks/locked", { token });
+  expect(locked.status, locked.text).toBe(200);
+  expect((locked.json.data as { tier: string }).tier).toBe("new");
+
   // Only gold tasks are listed for a New contributor.
   const listed = await api("/api/tasks/available?page=1&per_page=100", { token });
   expect(listed.status, listed.text).toBe(200);
