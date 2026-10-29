@@ -86,13 +86,18 @@ export async function resolveUser(req: NextRequest): Promise<AuthUser> {
   }
 
   const token = parseBearerToken(req.headers.get("authorization"));
+  // Profile (email, wallet) is fetched from Privy only when a new user is
+  // created: for existing users it was a wasted API round-trip per request.
   const claims = await verifyPrivyToken(
     token,
     env.PRIVY_APP_ID ?? "",
     env.PRIVY_APP_SECRET ?? "",
     env.PRIVY_VERIFICATION_KEY,
+    { includeProfile: false },
   );
-  return loadOrCreateUserByPrivyDid(claims);
+  return loadOrCreateUserByPrivyDid(claims, () =>
+    fetchPrivyProfile(env.PRIVY_APP_ID ?? "", env.PRIVY_APP_SECRET ?? "", claims.privyDid),
+  );
 }
 
 async function loadUserById(id: string): Promise<AuthUser> {
@@ -112,6 +117,8 @@ async function loadUserById(id: string): Promise<AuthUser> {
 
 export async function loadOrCreateUserByPrivyDid(
   claims: PrivyClaims,
+  /** Called only when the user must be created (first login). */
+  loadProfile?: () => Promise<Pick<PrivyClaims, "email" | "walletAddress">>,
 ): Promise<AuthUser> {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -125,6 +132,10 @@ export async function loadOrCreateUserByPrivyDid(
       throw new AuthError("FORBIDDEN", "User is suspended");
     }
     return data as AuthUser;
+  }
+
+  if (loadProfile && !claims.email && !claims.walletAddress) {
+    claims = { ...claims, ...(await loadProfile()) };
   }
 
   // First login: create a contributor by default (ASSUMPTIONS A4).
@@ -189,6 +200,7 @@ export async function verifyPrivyToken(
   appId: string,
   appSecret: string,
   verificationKey?: string,
+  options: { includeProfile?: boolean } = {},
 ): Promise<PrivyClaims> {
   if (!appId) {
     throw new AuthError("UNAUTHORIZED", "Privy is not configured");
@@ -209,19 +221,24 @@ export async function verifyPrivyToken(
     throw new AuthError("UNAUTHORIZED", "Privy token is missing a subject");
   }
 
-  let email: string | null = null;
-  let walletAddress: string | null = null;
+  if (options.includeProfile === false) return { privyDid, email: null, walletAddress: null };
+  return { privyDid, ...(await fetchPrivyProfile(appId, appSecret, privyDid)) };
+}
 
-  // Best-effort: only when we have a real secret (network call, rate-limited).
-  if (appSecret) {
-    try {
-      const user = await privy.getUserById(privyDid);
-      email = user.email?.address ?? null;
-      walletAddress = user.wallet?.address ?? null;
-    } catch {
-      // Fall back to DID only, per OQ1–OQ3.
-    }
+/**
+ * Best-effort email and wallet for a Privy user: only with a real secret
+ * (network call, rate-limited); otherwise DID only, per OQ1–OQ3.
+ */
+export async function fetchPrivyProfile(
+  appId: string,
+  appSecret: string,
+  privyDid: string,
+): Promise<Pick<PrivyClaims, "email" | "walletAddress">> {
+  if (!appId || !appSecret) return { email: null, walletAddress: null };
+  try {
+    const user = await getPrivyClient(appId, appSecret).getUserById(privyDid);
+    return { email: user.email?.address ?? null, walletAddress: user.wallet?.address ?? null };
+  } catch {
+    return { email: null, walletAddress: null };
   }
-
-  return { privyDid, email, walletAddress };
 }
