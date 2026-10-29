@@ -1,8 +1,10 @@
 # Duplicate-account detection with TigerGraph — design proposal (HHG F6.2)
 
-**Status: built (2026-10-29).** In-process engine live; TigerGraph engine ready (schema, queries,
-loader and tests) and used once `TIGERGRAPH_HOST` + `TIGERGRAPH_TOKEN` are set — not yet run against a
-live TigerGraph workspace. Needs migration 013.
+**Status: live on TigerGraph Savanna (2026-10-29).** Schema (`tigergraph/schema.gsql`, all types
+prefixed `Zeno`/`ZENO_` to avoid clashing with other graphs in the workspace) and both queries are
+installed on the team's Savanna workspace (TigerGraph 4.2.5). The backend authenticates with a database
+secret (`TIGERGRAPH_SECRET` → 1-hour token via `POST /gsql/v1/tokens`). The in-process engine runs the
+same rules when TigerGraph is not configured.
 
 **As built:** `backend/lib/integrity/` (graph rules, TigerGraph adapter, service), `/tigergraph`
 (GSQL schema + queries), `account_flags` table, admin routes `/api/admin/integrity/{run,flags}`,
@@ -93,3 +95,16 @@ so it needs no new tracking. Device/network signals come later, after a privacy 
 1. Approve building the demo slice (signals 1, 3, 4 from existing data only)?
 2. TigerGraph account/API access: who creates the Savanna workspace and holds the token?
 3. Is routing flagged accounts to human review the right default (vs. only listing them)?
+
+
+## Evidence (2026-10-29)
+
+- `npm run integrity:check` with TigerGraph: `engine=tigergraph accounts=46 jobs=138 submissions=78
+  reviews=63 flags=0` — identical to the local engine on the same data.
+- Data landed: 46 `ZenoAccount`, 138 `ZenoJob`, 78 `ZenoAsset` vertices; all 38 accounts with a payout
+  wallet in Postgres have their `ZENO_USES_WALLET` edge (TigerGraph's edge-count statistics lag behind
+  writes and under-report; per-vertex checks are exact).
+- Detection self-test: two planted accounts (`zeno-selftest-*`) sharing a wallet and submitting
+  identical labels on one asset were found by `zeno_wallet_links` (both directions, with how each used
+  the wallet) and `zeno_duplicate_work` (both submissions named). The 6 test vertices were then
+  deleted; both queries return 0 again on real data.
