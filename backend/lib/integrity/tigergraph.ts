@@ -37,7 +37,7 @@ const norm = (wallet: string | null | undefined) => {
 
 /** Build the REST++ upsert body for the whole integrity graph. */
 export function buildUpsertPayload(input: IntegrityInput): { vertices: Vertices; edges: Edges } {
-  const vertices: Vertices = { Account: {}, Wallet: {}, Job: {}, Asset: {}, Submission: {} };
+  const vertices: Vertices = { Account: {}, Wallet: {}, LabelJob: {}, Asset: {}, Submission: {} };
   const edges: Edges = { Account: {}, Submission: {} };
   const edge = (fromType: string, fromId: string, type: string, toType: string, toId: string, attrs: Attr = {}) => {
     const byFrom = (edges[fromType][fromId] ??= {});
@@ -55,9 +55,9 @@ export function buildUpsertPayload(input: IntegrityInput): { vertices: Vertices;
     }
   }
   for (const j of input.jobs) {
-    vertices.Job[j.id] = {};
+    vertices.LabelJob[j.id] = {};
     vertices.Account[j.buyer_id] ??= {};
-    edge("Account", j.buyer_id, "OWNS_JOB", "Job", j.id);
+    edge("Account", j.buyer_id, "OWNS_JOB", "LabelJob", j.id);
     const wallet = norm(j.funding_wallet_address);
     if (wallet) {
       vertices.Wallet[wallet] = {};
@@ -74,7 +74,7 @@ export function buildUpsertPayload(input: IntegrityInput): { vertices: Vertices;
     vertices.Account[s.contributor_id] ??= {};
     edge("Account", s.contributor_id, "SUBMITTED", "Submission", s.id);
     edge("Submission", s.id, "ON_ASSET", "Asset", s.asset_id);
-    edge("Submission", s.id, "FOR_JOB", "Job", s.job_id);
+    edge("Submission", s.id, "FOR_JOB", "LabelJob", s.job_id);
   }
   for (const r of input.reviews) {
     vertices.Account[r.reviewer_id] ??= {};

@@ -8,15 +8,15 @@
 
 CREATE VERTEX Account (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
 CREATE VERTEX Wallet (PRIMARY_ID address STRING) WITH primary_id_as_attribute="true"
-CREATE VERTEX Job (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX LabelJob (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
 CREATE VERTEX Asset (PRIMARY_ID id STRING) WITH primary_id_as_attribute="true"
 CREATE VERTEX Submission (PRIMARY_ID id STRING, content_hash STRING, has_content BOOL, status STRING) WITH primary_id_as_attribute="true"
 
 CREATE UNDIRECTED EDGE USES_WALLET (FROM Account, TO Wallet, how STRING)
-CREATE DIRECTED EDGE OWNS_JOB (FROM Account, TO Job)
+CREATE DIRECTED EDGE OWNS_JOB (FROM Account, TO LabelJob)
 CREATE DIRECTED EDGE SUBMITTED (FROM Account, TO Submission)
 CREATE DIRECTED EDGE ON_ASSET (FROM Submission, TO Asset)
-CREATE DIRECTED EDGE FOR_JOB (FROM Submission, TO Job)
+CREATE DIRECTED EDGE FOR_JOB (FROM Submission, TO LabelJob)
 CREATE DIRECTED EDGE REVIEWED (FROM Account, TO Submission)
 
-CREATE GRAPH Zeno (Account, Wallet, Job, Asset, Submission, USES_WALLET, OWNS_JOB, SUBMITTED, ON_ASSET, FOR_JOB, REVIEWED)
+CREATE GRAPH Zeno (Account, Wallet, LabelJob, Asset, Submission, USES_WALLET, OWNS_JOB, SUBMITTED, ON_ASSET, FOR_JOB, REVIEWED)

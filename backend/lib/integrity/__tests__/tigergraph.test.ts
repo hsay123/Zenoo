@@ -70,7 +70,7 @@ describe("buildUpsertPayload", () => {
     });
     expect(p.edges.Account.alice.USES_WALLET.Wallet[W]).toEqual({ how: { value: "payout wallet" } });
     expect(p.edges.Account.buyer.USES_WALLET.Wallet[W]).toEqual({ how: { value: "funded job job-1" } });
-    expect(p.edges.Account.buyer.OWNS_JOB.Job["job-1"]).toEqual({});
+    expect(p.edges.Account.buyer.OWNS_JOB.LabelJob["job-1"]).toEqual({});
     expect(p.edges.Submission.s2.ON_ASSET.Asset.a1).toEqual({});
     expect(p.edges.Account.rev.REVIEWED.Submission.s1).toEqual({});
   });
