@@ -1,3 +1,7 @@
+# Start here
+
+Read `MEMORY.md` (project state, what is done, what is next) and `CLAUDE.md` (ground rules, checks) before any change.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
