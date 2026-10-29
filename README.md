@@ -68,7 +68,14 @@ npx tsc --noEmit && npm run lint && npm test && npm run build
 npx playwright test e2e/s1-auth-roles.spec.ts e2e/s2-buyer-job.spec.ts \
   e2e/s3-contributor-claim.spec.ts e2e/s4-reviewer-lifecycle.spec.ts \
   e2e/s5-receipts-export.spec.ts e2e/s6-lifecycle-admin.spec.ts
+# Contracts
+cd contracts && forge test
+# Dependency supply chain (Socket.dev) — needs a free API token once: npx socket@1.11.1 login
+npx socket@1.11.1 ci            # scans both lockfiles; exits non-zero if the report is unhealthy
 ```
+
+Socket's GitHub app can also be installed on the repository to flag risky dependency changes on
+every pull request (no code change needed).
 
 ## Security posture
 

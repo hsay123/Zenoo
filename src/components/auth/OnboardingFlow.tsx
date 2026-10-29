@@ -541,6 +541,10 @@ export function OnboardingFlow() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                  <span>Paid in USDC on Base — to your Zeno wallet or Cake Wallet</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
                   <span>Flexible schemas for image and video annotation</span>
                 </li>
                 <li className="flex items-center gap-2">
