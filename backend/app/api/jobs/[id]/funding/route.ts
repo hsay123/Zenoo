@@ -21,7 +21,7 @@ import { TOKEN_DECIMALS, isAllowedChain, resolveRpcUrl } from "@/lib/settlement/
 import { quoteFunding } from "@/lib/funding/pricing";
 import { dodoConfig } from "@/lib/funding/dodo";
 import { createTreasuryFunder, erc20ApproveAbi } from "@/lib/funding/treasury";
-import { chainJobIdFor, loadLatestPayment } from "@/lib/funding/service";
+import { cardFundingAvailability, chainJobIdFor, loadLatestPayment } from "@/lib/funding/service";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -51,7 +51,10 @@ export async function GET(
       const walletEnabled =
         Boolean(escrow && token && resolveRpcUrl(env)) && isAllowedChain(env.CHAIN_ID);
       const treasury = createTreasuryFunder(env);
-      const payment = await loadLatestPayment(job.id);
+      const [payment, card] = await Promise.all([
+        loadLatestPayment(job.id),
+        cardFundingAvailability(env, quote, { treasury: treasury.ok ? treasury.funder : null }),
+      ]);
 
       const displayStatus =
         job.status === "closed"
@@ -114,6 +117,10 @@ export async function GET(
           // Whether a card payment will be turned into escrow funding
           // automatically, or wait as "paid, awaiting funding".
           card_auto_funding: treasury.ok,
+          // Whether a card checkout can be started for this job right now,
+          // and why not (minimum charge, treasury float or gas).
+          card_available: card.available,
+          card_unavailable_reason: card.reason,
         },
         wallet_tx: walletTx,
         payment: payment

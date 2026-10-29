@@ -50,3 +50,58 @@ export async function sendAndWait(
   }
   throw new WalletTxError(`Transaction ${hash} was not confirmed in time; try again shortly.`);
 }
+
+export interface WalletBalances {
+  /** Token base units (USDC: 6 decimals). */
+  tokenUnits: bigint;
+  /** Native gas balance in wei. */
+  gasWei: bigint;
+}
+
+/**
+ * Read a wallet's token and gas balances over JSON-RPC, so the funding screen
+ * can say "this wallet cannot pay" before asking it to sign anything.
+ */
+export async function readWalletBalances(
+  rpcUrl: string,
+  token: string,
+  owner: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<WalletBalances> {
+  const call = async (method: string, params: unknown[]) => {
+    const res = await fetchImpl(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    const body = (await res.json()) as { result?: string; error?: { message?: string } };
+    if (!res.ok || body.error || typeof body.result !== "string") {
+      throw new WalletTxError(body.error?.message ?? `RPC ${method} failed`);
+    }
+    return BigInt(body.result === "0x" ? "0x0" : body.result);
+  };
+  // balanceOf(address): selector 0x70a08231 + the address left-padded to 32 bytes.
+  const data = `0x70a08231${owner.toLowerCase().replace(/^0x/, "").padStart(64, "0")}`;
+  const [tokenUnits, gasWei] = await Promise.all([
+    call("eth_call", [{ to: token, data }, "latest"]),
+    call("eth_getBalance", [owner, "latest"]),
+  ]);
+  return { tokenUnits, gasWei };
+}
+
+/** Approve + fundJob on Base Sepolia need far less; this leaves headroom. */
+export const MIN_GAS_WEI = BigInt("20000000000000"); // 0.00002 ETH
+
+/** Turn a raw wallet/RPC failure into something a buyer can act on. */
+export function friendlyWalletError(cause: unknown): string | null {
+  const text = cause instanceof Error ? cause.message : String(cause ?? "");
+  // Token shortfall first: its message also says "exceeds balance".
+  if (/transfer amount exceeds balance|ERC20InsufficientBalance/i.test(text)) {
+    return "Your wallet does not hold enough test USDC for this job. Pay by card instead, or add test USDC and try again.";
+  }
+  if (/insufficient funds|gas \* price/i.test(text)) {
+    return "Your wallet has no Base Sepolia ETH to pay the network fee. Pay by card instead, or add test ETH to the wallet and try again.";
+  }
+  if (/user rejected|denied|cancel/i.test(text)) return "The wallet request was cancelled.";
+  return null;
+}

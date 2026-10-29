@@ -182,6 +182,8 @@ export const jobFundingSchema = z.object({
     wallet: z.boolean(),
     card: z.boolean(),
     card_auto_funding: z.boolean(),
+    card_available: z.boolean().optional(),
+    card_unavailable_reason: z.string().nullable().optional(),
   }),
   wallet_tx: z
     .object({

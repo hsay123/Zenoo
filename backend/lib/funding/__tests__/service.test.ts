@@ -55,7 +55,7 @@ function table(name: string) {
 
 vi.mock("@/lib/db/supabase", () => ({ getSupabase: () => ({ from: (name: string) => table(name) }) }));
 
-const { applyPaymentSucceeded, chainJobIdFor, fundPaidPayment } = await import("../service");
+const { applyPaymentSucceeded, chainJobIdFor, createCardCheckout, fundPaidPayment } = await import("../service");
 
 const TREASURY = "0x1111111111111111111111111111111111111111" as Address;
 const CONFIG: DodoConfig = { apiKey: "k", webhookSecret: "s", productId: "p", baseUrl: "x" };
@@ -277,5 +277,27 @@ describe("fundPaidPayment", () => {
       payment_id: "pay-1",
       state: "awaiting_funding",
     });
+  });
+});
+
+describe("createCardCheckout", () => {
+  const job = { id: "job-1", status: "published", funding_status: "unfunded", budget: "4" } as never;
+  const buyer = { id: "buyer-1", email: null } as never;
+
+  it("refuses before recording a payment when card funding is unavailable", async () => {
+    const before = db.job_payments.length;
+    let created = 0;
+    await expect(
+      createCardCheckout(job, buyer, ENV, {
+        config: CONFIG,
+        availability: async () => ({ available: false, reason: "Card payments start at $0.50" }),
+        create: async () => {
+          created += 1;
+          return { session_id: "cks", checkout_url: "https://x" };
+        },
+      }),
+    ).rejects.toThrow(/start at \$0\.50/);
+    expect(created).toBe(0);
+    expect(db.job_payments.length).toBe(before);
   });
 });

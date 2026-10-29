@@ -14,7 +14,15 @@ import {
   jobSchema,
   platformPaths,
 } from "@/lib/api/platform";
-import { sendAndWait, WalletTxError, type Eip1193Provider } from "@/lib/funding/wallet";
+import {
+  MIN_GAS_WEI,
+  friendlyWalletError,
+  readWalletBalances,
+  sendAndWait,
+  WalletTxError,
+  type Eip1193Provider,
+  type WalletBalances,
+} from "@/lib/funding/wallet";
 import { appChain } from "@/lib/privy/config";
 import { formatCount, formatUsdc } from "@/lib/utils/format";
 
@@ -28,6 +36,19 @@ const POLL_LIMIT = 30;
  * through Dodo Payments (test mode), after which the platform funds escrow.
  * Tasks are only claimable by contributors once the job is funded.
  */
+/** USDC base units (6 decimals) to a decimal string, without floats. */
+function formatUnits6(units: bigint): string {
+  const whole = units / BigInt(1_000_000);
+  const frac = (units % BigInt(1_000_000)).toString().padStart(6, "0").replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : `${whole}`;
+}
+
+/** Wei to a short ETH figure for display only (never used for money math). */
+function formatEth(wei: bigint): string {
+  const micro = wei / BigInt(1_000_000_000_000); // 1e-6 ETH
+  return (Number(micro) / 1_000_000).toFixed(micro > BigInt(0) && micro < BigInt(100) ? 6 : 4);
+}
+
 export function JobFunding({
   jobId,
   jobStatus,
@@ -44,6 +65,27 @@ export function JobFunding({
   const [polls, setPolls] = useState(0);
 
   const data = query.status === "ready" ? query.data : null;
+
+  // The wallet that would pay: the one already recorded for this job, else the
+  // signed-in one (an email sign-up gets an embedded Privy wallet, which starts
+  // empty). Its balances decide whether wallet funding is offered at all.
+  const recordedWallet = data?.wallet_tx?.funding_wallet_address?.toLowerCase();
+  const payingWallet =
+    (recordedWallet && wallets.find((w) => w.address.toLowerCase() === recordedWallet)) || wallets[0] || null;
+  const payingAddress = payingWallet?.address ?? null;
+  const tokenAddress = data?.chain.token_address ?? null;
+  const [balances, setBalances] = useState<WalletBalances | null>(null);
+  const [balanceCheck, setBalanceCheck] = useState(0);
+  useEffect(() => {
+    if (!payingAddress || !tokenAddress) return;
+    let active = true;
+    readWalletBalances(appChain.rpcUrls.default.http[0], tokenAddress, payingAddress)
+      .then((b) => active && setBalances(b))
+      .catch(() => active && setBalances(null));
+    return () => {
+      active = false;
+    };
+  }, [payingAddress, tokenAddress, balanceCheck]);
   const returningFromCheckout =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("payment") === "return";
@@ -97,10 +139,18 @@ export function JobFunding({
       await wallet.switchChain(funding.chain.chain_id);
       const provider = (await wallet.getEthereumProvider()) as Eip1193Provider;
 
+      const send = async (request: typeof tx.approve) => {
+        try {
+          return await sendAndWait(provider, wallet.address, request);
+        } catch (cause) {
+          const friendly = friendlyWalletError(cause);
+          throw friendly ? new WalletTxError(friendly) : cause;
+        }
+      };
       setStage("Approve USDC in your wallet…");
-      await sendAndWait(provider, wallet.address, tx.approve);
+      await send(tx.approve);
       setStage("Confirm the escrow deposit in your wallet…");
-      const fundHash = await sendAndWait(provider, wallet.address, tx.fund);
+      const fundHash = await send(tx.fund);
 
       setStage("Verifying the deposit…");
       return client.post(jobSchema, platformPaths.fundJobConfirm(jobId), {
@@ -132,6 +182,16 @@ export function JobFunding({
             (funding.display_status === "unfunded" ||
               (funding.display_status === "pending" && funding.wallet_tx !== null));
           const feePercent = funding.quote.fee_bps / 100;
+          const needUnits = BigInt(funding.quote.payout_units);
+          const walletShort = balances
+            ? balances.tokenUnits < needUnits
+              ? "usdc"
+              : balances.gasWei < MIN_GAS_WEI
+                ? "gas"
+                : null
+            : null;
+          const walletCanPay = funding.methods.wallet && balances !== null && walletShort === null;
+          const cardAvailable = funding.methods.card && (funding.methods.card_available ?? true);
           const explorer = appChain.blockExplorers.default.url;
           const fundingTx = funding.payment?.funding_tx_hash ?? null;
 
@@ -182,31 +242,99 @@ export function JobFunding({
               </dl>
 
               {canFund ? (
-                <div className="mt-5 flex flex-wrap items-center gap-2">
+                <>
+                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                    {funding.methods.card && funding.display_status === "unfunded" ? (
+                      <Button
+                        variant={walletCanPay ? "secondary" : "primary"}
+                        onClick={() => void payByCard()}
+                        disabled={pending || !cardAvailable}
+                      >
+                        <Receipt className="h-4 w-4" />
+                        Pay by card / UPI
+                      </Button>
+                    ) : null}
+                    {funding.methods.wallet ? (
+                      <Button
+                        variant={walletCanPay ? "primary" : "secondary"}
+                        onClick={() => void fundFromWallet()}
+                        disabled={pending || !walletCanPay}
+                      >
+                        <Wallet className="h-4 w-4" />
+                        {funding.display_status === "pending"
+                          ? "Continue wallet funding"
+                          : "Fund from wallet"}
+                      </Button>
+                    ) : null}
+                    {!funding.methods.wallet && !funding.methods.card ? (
+                      <span className="text-caption text-ink-4">
+                        Funding is not configured on this deployment yet.
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {funding.methods.card && !cardAvailable && funding.methods.card_unavailable_reason ? (
+                    <p className="mt-3 text-caption text-ink-3">{funding.methods.card_unavailable_reason}</p>
+                  ) : null}
+
                   {funding.methods.wallet ? (
-                    <Button onClick={() => void fundFromWallet()} disabled={pending}>
-                      <Wallet className="h-4 w-4" />
-                      {funding.display_status === "pending"
-                        ? "Continue wallet funding"
-                        : "Fund from wallet"}
-                    </Button>
+                    <div className="mt-4 rounded-lg border border-line bg-surface-muted p-4 text-body-sm">
+                      {payingAddress ? (
+                        <>
+                          <p className="text-ink-2">
+                            Your wallet{" "}
+                            <code className="font-mono text-[12px] text-ink">
+                              {payingAddress.slice(0, 6)}…{payingAddress.slice(-4)}
+                            </code>{" "}
+                            <button
+                              type="button"
+                              className="text-caption underline hover:text-ink"
+                              onClick={() => void navigator.clipboard.writeText(payingAddress)}
+                            >
+                              copy
+                            </button>
+                            {balances ? (
+                              <>
+                                {" "}· {formatUsdc(formatUnits6(balances.tokenUnits))} ·{" "}
+                                {formatEth(balances.gasWei)} ETH for gas
+                              </>
+                            ) : (
+                              " · checking balance…"
+                            )}
+                          </p>
+                          {walletShort ? (
+                            <p className="mt-2 text-ink-3">
+                              {walletShort === "usdc"
+                                ? `This wallet needs ${formatUsdc(funding.quote.payout)} (test funds) to fund the escrow.`
+                                : "This wallet has no Base Sepolia ETH for the network fee."}{" "}
+                              {cardAvailable ? "Pay by card instead, or add funds: " : "Add funds: "}
+                              <a className="underline" href="https://faucet.circle.com" target="_blank" rel="noreferrer">
+                                test USDC
+                              </a>{" "}
+                              ·{" "}
+                              <a
+                                className="underline"
+                                href="https://docs.base.org/base-chain/tools/network-faucets"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Base Sepolia ETH
+                              </a>{" "}
+                              ·{" "}
+                              <button type="button" className="underline" onClick={() => setBalanceCheck((n) => n + 1)}>
+                                check again
+                              </button>
+                            </p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-ink-3">
+                          No wallet is connected to this account yet, so pay by card, or sign in with a wallet.
+                        </p>
+                      )}
+                    </div>
                   ) : null}
-                  {funding.methods.card && funding.display_status === "unfunded" ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() => void payByCard()}
-                      disabled={pending}
-                    >
-                      <Receipt className="h-4 w-4" />
-                      Pay by card / UPI
-                    </Button>
-                  ) : null}
-                  {!funding.methods.wallet && !funding.methods.card ? (
-                    <span className="text-caption text-ink-4">
-                      Funding is not configured on this deployment yet.
-                    </span>
-                  ) : null}
-                </div>
+                </>
               ) : null}
 
               {jobStatus !== "published" && funding.display_status === "unfunded" ? (
