@@ -118,6 +118,7 @@ To finish:
 6. After the hackathon: **rotate every secret that was pasted in chat** (Privy, Supabase service
    role, Anthropic, Dodo key + webhook secret, viaSocket embed secret, TigerGraph secret).
 7. Landing page: the faint "Pre-labelling Agent" graphic is the user's own (keep).
+8. UX: Contributor → Available tasks shows task/job **ids**; show the job title, reward and labels instead (backend `GET /api/tasks/available` + `src/components/product/*Tasks*`). The workspace itself works for images (box drawing) and video (timeline segments).
 
 ## 6. How to run and check
 
