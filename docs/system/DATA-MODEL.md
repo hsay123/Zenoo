@@ -112,6 +112,17 @@ stateDiagram-v2
 Crash recovery (`/api/settlement/reconcile`) re-verifies `submitted` rows by tx hash; it never
 re-broadcasts a row that already has a hash.
 
+### 2.5 Data API tables (migration 015) **[live]**
+
+| Table / column | Purpose |
+| --- | --- |
+| `api_keys` | Per-organisation keys: `prefix` (display), `key_hash` (SHA-256, unique), `scopes`, `last_used_at`, `revoked_at`. The key itself is never stored. |
+| `api_usage` | `(organization_id, month)` → `requests`, `records`; bumped by `record_api_usage()` (service role only). |
+| `organizations.api_plan` | `none` / `api`, plus `api_plan_subscription_id`, `_status`, `_renews_at`; set only by verified Dodo `subscription.*` webhooks. |
+| `idx_tasks_job_status_updated` | Keyset pagination over a job's accepted tasks `(job_id, status, updated_at, id)`. |
+
+See `docs/system/DATA-API.md`.
+
 ## 3. Money representation
 
 | Layer | Form | Rule |

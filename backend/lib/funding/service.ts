@@ -31,6 +31,7 @@ import {
   type DodoPayment,
 } from "@/lib/funding/dodo";
 import { createTreasuryFunder, type TreasuryFunder } from "@/lib/funding/treasury";
+import { cardAvailability, type CardAvailability } from "@/lib/funding/cardLimits";
 import { emitZenoEvent } from "@/lib/notify/viasocket";
 
 export type PaymentStatus = "created" | "paid" | "funding" | "funded" | "failed";
@@ -111,11 +112,37 @@ async function updatePayment(
 
 // --------------------------------------------------------------- checkout
 
+/** Whether card/UPI can fund this quote right now (see cardLimits.ts). */
+export async function cardFundingAvailability(
+  env: Env,
+  quote: { total_cents: number; payout_units: string },
+  deps: { treasury?: TreasuryFunder | null } = {},
+): Promise<CardAvailability> {
+  const treasury =
+    deps.treasury === undefined
+      ? (() => {
+          const built = createTreasuryFunder(env);
+          return built.ok ? built.funder : null;
+        })()
+      : deps.treasury;
+  return cardAvailability({
+    configured: dodoConfig(env) !== null,
+    totalCents: quote.total_cents,
+    payoutUnits: BigInt(quote.payout_units),
+    capacity: treasury ? await treasury.capacity() : null,
+    treasuryConfigured: treasury !== null,
+  });
+}
+
 export async function createCardCheckout(
   job: Job,
   buyer: AuthUser,
   env: Env,
-  deps: { config?: DodoConfig | null; create?: typeof createCheckout } = {},
+  deps: {
+    config?: DodoConfig | null;
+    create?: typeof createCheckout;
+    availability?: (quote: { total_cents: number; payout_units: string }) => Promise<CardAvailability>;
+  } = {},
 ): Promise<{ payment_id: string; checkout_url: string }> {
   const config = deps.config === undefined ? dodoConfig(env) : deps.config;
   if (!config) throw HttpError.conflict("Card/UPI payments are not enabled");
@@ -125,6 +152,10 @@ export async function createCardCheckout(
   }
 
   const quote = quoteFunding(String(job.budget), env.ZENO_FEE_BPS);
+  // Never take a card payment the platform cannot turn into escrow funding.
+  const availability = await (deps.availability ?? ((q) => cardFundingAvailability(env, q)))(quote);
+  if (!availability.available) throw HttpError.conflict(availability.reason);
+
   const supabase = getSupabase();
   const { data: row, error } = await supabase
     .from("job_payments")
@@ -196,11 +227,17 @@ export async function applyPaymentSucceeded(
 
   const row = await loadPayment(zenoPaymentId);
   if (!row) return { handled: false, reason: "unknown zeno_payment_id" };
-  if (payment.currency !== row.currency) {
-    return { handled: false, reason: `currency ${payment.currency} != ${row.currency}` };
+  // A buyer may pay in their local currency (Dodo Adaptive Currency, e.g.
+  // INR); Dodo then reports the settled amount in the product's currency.
+  // Verify that settled amount, or the charged one when nothing was converted.
+  const converted = payment.currency !== row.currency;
+  const currency = converted ? payment.settlement_currency : payment.currency;
+  const amount = converted ? payment.settlement_amount : payment.total_amount;
+  if (currency !== row.currency) {
+    return { handled: false, reason: `currency ${currency ?? payment.currency} != ${row.currency}` };
   }
-  // `total_amount` includes any tax, so it may exceed the quote; never less.
-  if (!Number.isInteger(payment.total_amount) || payment.total_amount < row.amount_cents) {
+  // The amount includes any tax, so it may exceed the quote; never less.
+  if (typeof amount !== "number" || !Number.isInteger(amount) || amount < row.amount_cents) {
     return { handled: false, reason: "paid amount is less than the quoted amount" };
   }
   if (row.checkout_session_id && payment.checkout_session_id &&

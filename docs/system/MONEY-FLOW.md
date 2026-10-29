@@ -183,6 +183,15 @@ contributors = wallets behind its accepted labels, weighted by count — and eit
 the `SplitPaid` event. Shown on the admin page as **"Roadmap demo"**. Deploy with
 `script/DeployRoyaltySplitter.s.sol`; deployed at `0x5E625CA857b293E315d95846D13485785D233A66`.
 
+## 6b. Data API plan **[live, test mode]**
+
+The startup Data API is a **$299/month** Dodo Payments subscription
+(`DODO_API_PLAN_PRODUCT_ID`, recurring). `POST /api/billing/api-plan/checkout` opens Dodo's test
+checkout with `metadata.zeno_org_id`; the plan changes only on a signed `subscription.*` webhook,
+after the subscription is re-fetched from Dodo (product, status, metadata). `active` and
+`past_due` (Dodo's grace period) keep access; anything else switches it off. No USDC or escrow
+is involved. See `docs/system/DATA-API.md` §5.
+
 ## 7. Decimal safety checklist (PRD risk #1)
 
 - [x] Contract tests use 6-decimal amounts (`250_000` = 0.25 USDC), never `ether`.

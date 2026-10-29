@@ -91,6 +91,21 @@ describe("loadOrCreateUserByPrivyDid", () => {
     expect(user.id).toBe("row-1");
   });
 
+  it("never fetches the Privy profile for an existing user", async () => {
+    state.store = [{ id: "row-1", privy_did: DID, role: "buyer", status: "active" }];
+    const loadProfile = vi.fn(async () => ({ email: "x@example.com", walletAddress: null }));
+    const user = await loadOrCreateUserByPrivyDid({ privyDid: DID, email: null, walletAddress: null }, loadProfile);
+    expect(user.id).toBe("row-1");
+    expect(loadProfile).not.toHaveBeenCalled();
+  });
+
+  it("fetches the Privy profile once, only to create a new user", async () => {
+    const loadProfile = vi.fn(async () => ({ email: "new@example.com", walletAddress: claims.walletAddress }));
+    const user = await loadOrCreateUserByPrivyDid({ privyDid: DID, email: null, walletAddress: null }, loadProfile);
+    expect(loadProfile).toHaveBeenCalledTimes(1);
+    expect(user).toMatchObject({ email: "new@example.com", wallet_address: claims.walletAddress });
+  });
+
   it("rethrows the duplicate-key error when even the fallback finds nothing", async () => {
     state.store = [{ id: "row-1", privy_did: DID }]; // INSERT will collide
     state.selectMisses = 2; // both SELECTs miss

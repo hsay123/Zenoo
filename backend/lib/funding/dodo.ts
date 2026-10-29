@@ -35,9 +35,19 @@ export function dodoConfig(env: Env): DodoConfig | null {
   return { apiKey, webhookSecret, productId, baseUrl: DODO_TEST_BASE_URL };
 }
 
+/**
+ * Webhooks and the API plan need only the API key and the signing secret; the
+ * job-funding product is required only for card checkout of a job.
+ */
+export function dodoWebhookConfig(env: Env): { apiKey: string; webhookSecret: string } | null {
+  const apiKey = (env.DODO_API_KEY ?? "").trim();
+  const webhookSecret = (env.DODO_WEBHOOK_SECRET ?? "").trim();
+  return apiKey && webhookSecret ? { apiKey, webhookSecret } : null;
+}
+
 type FetchLike = typeof fetch;
 
-async function dodoRequest<T>(
+export async function dodoRequest<T>(
   config: DodoConfig,
   path: string,
   init: { method: "GET" | "POST"; body?: unknown },
@@ -100,6 +110,12 @@ export interface DodoPayment {
   currency: string;
   metadata: Record<string, unknown>;
   checkout_session_id?: string | null;
+  /**
+   * What Dodo settles to us. With Adaptive Currency a buyer may pay in their
+   * own currency (e.g. INR); this stays in the product's currency (USD).
+   */
+  settlement_currency?: string | null;
+  settlement_amount?: number | null;
 }
 
 export function getPayment(

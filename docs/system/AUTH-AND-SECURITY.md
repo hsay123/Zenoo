@@ -22,6 +22,12 @@
 `DEV_AUTH_BYPASS=true` (header `x-dev-user-id`) is refused at startup in production and must be
 `false` for any run used as evidence.
 
+**Data API keys [live]** (`backend/lib/dataapi/`). `/api/v1/*` accepts only `zeno_test_…` keys,
+the app's routes only Privy tokens; neither works on the other. Keys are stored as SHA-256 hashes,
+shown once, revocable, scoped (`datasets:read`, `labels:read`, `media:read`), rate limited to 600
+requests a minute each, and need the organisation's API plan (`402` otherwise). Responses carry
+only accepted labels and never contributor identity; media links are signed for 15 minutes.
+
 ## 3. Roles and authorization
 
 | Role | Gets it by | Can |

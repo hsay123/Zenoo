@@ -13,6 +13,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  erc20Abi,
   http,
   type Address,
   type Hex,
@@ -47,6 +48,10 @@ export interface TreasuryDeps {
   sendTransaction(args: { to: Address; data: Hex }): Promise<Hex>;
   waitForTransactionReceipt(args: { hash: Hex }): Promise<Receipt>;
   getEscrowOwner(): Promise<Address>;
+  /** USDC base units the treasury holds (for the card-funding capacity check). */
+  getTokenBalance?(): Promise<bigint>;
+  /** Native gas balance in wei. */
+  getGasBalance?(): Promise<bigint>;
 }
 
 export class TreasuryFunder {
@@ -54,6 +59,17 @@ export class TreasuryFunder {
 
   get address(): Address {
     return this.deps.address;
+  }
+
+  /** What the treasury can fund right now, or null when it cannot be read. */
+  async capacity(): Promise<{ usdcUnits: bigint; gasWei: bigint } | null> {
+    if (!this.deps.getTokenBalance || !this.deps.getGasBalance) return null;
+    try {
+      const [usdcUnits, gasWei] = await Promise.all([this.deps.getTokenBalance(), this.deps.getGasBalance()]);
+      return { usdcUnits, gasWei };
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -186,6 +202,9 @@ export function createTreasuryFunder(env: Env): TreasuryAvailability {
           abi: jobEscrowAdminAbi,
           functionName: "owner",
         }),
+      getTokenBalance: () =>
+        client.readContract({ address: token as Address, abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+      getGasBalance: () => client.getBalance({ address }),
     }),
   };
 }

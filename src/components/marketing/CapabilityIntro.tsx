@@ -17,7 +17,6 @@ import { BentoCard } from "@/components/ui/BentoCard";
  */
 export function CapabilityIntro() {
   const [isInView, setIsInView] = useState(false);
-  const [videoError, setVideoError] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -91,36 +90,6 @@ export function CapabilityIntro() {
               aria-hidden="true"
             />
 
-            {/* Background Video Asset — WebM Animation */}
-            {!videoError && (
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                className="workflow-bg-video"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  objectPosition: 'right center',
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                  opacity: prefersReducedMotion ? 0 : 0.75,
-                  borderRadius: '24px',
-                  transition: 'opacity 0.6s ease-out',
-                }}
-                aria-hidden="true"
-                onError={() => setVideoError(true)}
-                poster="/workflow-poster.webp"
-              >
-                <source src="https://encord.cdn.prismic.io/encord/ah7U1geQX7-eWjLz_Data-layer-graphic_17.webm" type="video/webm" />
-              </video>
-            )}
 
             {/* Subtle Gradient Overlay for Text Contrast — Full width */}
             <div

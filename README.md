@@ -72,6 +72,19 @@ npx playwright test e2e/s1-auth-roles.spec.ts e2e/s2-buyer-job.spec.ts \
 cd contracts && forge test
 ```
 
+## Data API for startups ($299/month, test mode)
+
+Startups pull accepted labels straight into training code: COCO, YOLO or JSON, filtered by
+class, renamed, in the box format they use, split train/val, paginated or streamed, with
+15-minute media links. API keys (`zeno_test_…`) are created under **Buyer → API**; access needs
+the API plan (Dodo test subscription). Guide: `docs/api/README.md` · spec:
+`/api/v1/openapi.json` · design: `docs/system/DATA-API.md` · page: `/developers`.
+
+```bash
+curl -H "Authorization: Bearer $ZENO_API_KEY" \
+  "https://zenolab-api.vercel.app/api/v1/datasets/<id>/labels?format=yolo&split=train:0.8,val:0.2"
+```
+
 ## viaSocket event hook (HHG sponsor)
 
 Zeno posts its key events to a [viaSocket](https://viasocket.com) flow, which fans them out to
