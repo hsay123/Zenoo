@@ -22,7 +22,7 @@ payout. Startups can pull accepted labels through a paid **Data API**.
 
 | | |
 | --- | --- |
-| Repo | `/home/yashh/Downloads/Zeno` → github.com/hsay123/Zenoo, branch **`hhg-base-usdc`** (all work pushed; last commit `030d87a`) |
+| Repo | `/home/yashh/Downloads/Zeno` → github.com/hsay123/Zenoo, branch **`hhg-base-usdc`** (all work pushed; see `git log` for the latest) |
 | Frontend | Next.js 16.4.3 at repo root → **https://zenolab.vercel.app** (Vercel project `zenolab`) |
 | Backend | API-only Next.js in `/backend` → **https://zenolab-api.vercel.app** (Vercel project `zenolab-api`); frontend proxies `/platform/*` → backend |
 | Vercel | user `yashh`, team `yashlandge150-gmailcoms-projects`. Deploy: `vercel deploy --prod --yes` (run in root for frontend, in `backend/` for backend) |
