@@ -1,4 +1,4 @@
-# Zeno — project memory / handoff (state at 2026-10-30, ~04:00 IST)
+# Zeno — project memory / handoff (state at 2026-10-30, ~16:00 IST)
 
 Read this first when continuing the work with any agent (Claude Code, OpenCode, …). Also read
 `CLAUDE.md` (ground rules + checks), `AGENTS.md` (Next.js 16: read `node_modules/next/dist/docs/`
@@ -22,11 +22,11 @@ payout. Startups can pull accepted labels through a paid **Data API**.
 
 | | |
 | --- | --- |
-| Repo | `/home/yashh/Downloads/Zeno` → github.com/hsay123/Zenoo, branch **`hhg-base-usdc`** (all work pushed; last commit `a7b224d`) |
+| Repo | `/home/yashh/Downloads/Zeno` → github.com/hsay123/Zenoo, branch **`hhg-base-usdc`** (all work pushed; last commit `030d87a`) |
 | Frontend | Next.js 16.4.3 at repo root → **https://zenolab.vercel.app** (Vercel project `zenolab`) |
 | Backend | API-only Next.js in `/backend` → **https://zenolab-api.vercel.app** (Vercel project `zenolab-api`); frontend proxies `/platform/*` → backend |
 | Vercel | user `yashh`, team `yashlandge150-gmailcoms-projects`. Deploy: `vercel deploy --prod --yes` (run in root for frontend, in `backend/` for backend) |
-| Database | Supabase project `sfebambrdcfqrdmetflw`. Migrations `backend/supabase/migrations/001…017`, **all applied**. Supabase MCP is configured in `.mcp.json` (only loads when the agent starts in this folder) |
+| Database | Supabase project `sfebambrdcfqrdmetflw`. Migrations `backend/supabase/migrations/001…018`, **all applied**. Supabase MCP is configured in `.mcp.json` (only loads when the agent starts in this folder) |
 | Auth | Privy app **`cmv2vvueq01hu0gjju69ht0wf`** (the one with all users). Email OTP + wallet login, embedded wallets |
 | Chain | Base Sepolia. USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (6 decimals) |
 | JobEscrow v3 | `0xa4B1053d0878Ae2b86640A547E125BEB20456962` |
@@ -76,7 +76,36 @@ payout. Startups can pull accepted labels through a paid **Data API**.
   decision response shape, sign-in slowness (Privy `getUserById` on every request → only on create),
   landing page hot-linking another company's video (removed).
 
-**Tests**: backend 431 unit tests, frontend 70, contracts 64; Playwright e2e `e2e/s1…s10` all pass
+**Contributor experience: real jobs only, live, with claim feedback (2026-10-30)**
+- `is_test` (migration 018, `jobs` + `tasks`) marks **automation fixtures**. It is separate from
+  `is_demo`: `is_demo` = never settle; `is_test` = fixture, hidden from production but settles
+  normally. `backend/lib/jobs/visibility.ts#shouldHideTestJobs` decides (true when
+  `NODE_ENV=production`; `HIDE_TEST_JOBS` overrides). Development keeps fixtures visible so the e2e
+  suite can still claim and settle its own jobs.
+- Production hides `is_test` from `/api/tasks/available`, `/api/tasks/locked`, `/api/tasks/mine`,
+  `POST /api/tasks/{id}/claim`, and `/api/earnings` (**history and totals** — the old earnings
+  summary ignored the flag and leaked `E2E …` jobs into "Resume your work").
+- `GET /api/tasks/mine` returns claimed/draft tasks with `job_title`, `reward_per_task`,
+  `label_list`; claiming removes a task from the available queue, so this is what makes it
+  reachable again ("In progress" → Continue / Continue draft).
+- `/api/tasks/available` now returns `job_title`/`reward_per_task`/`label_list` (not raw ids), and
+  Contributor → Available tasks polls every 10 s while the tab is visible (`QUEUE_POLL_MS`), shows
+  "last checked", a manual Refresh, and a per-row "Claiming…" state with an inline error.
+- Backfill: 198 e2e jobs / 277 tasks marked `is_test = true`; the live qualification job
+  (`19e22649-724c-4ff0-9705-bb81c808b578`) was restored to `is_test = false` so new contributors
+  still get gold tasks.
+- **Live proof on production** (real org job → claim → submit → reviewer accept → on-chain payout):
+  job `fea8d005-36bf-487a-9e9d-c1d899b5e7ca`, task `ddcd32e5-2dfc-4db4-8ea4-be6794e848df`,
+  submission `f1717f97-c4c6-441e-9edd-31355e79af35`, receipt
+  `df1f482c-84cc-44f9-9626-03280cfd9ded`, tx
+  `0x1c73daf2018c064545fe0e6c4d63f48c57c32425866d0009085d93ed0801c22c` (contributor +0.05 USDC).
+  A task accidentally held from an interrupted check (`4d931d34-1ced-4d3c-83fa-0c0af8f4556f`,
+  "data annotaion", 0.1 USDC) was submitted, accepted and paid:
+  receipt `a30cf473-3f0a-4941-8f1d-903e6422b997`, tx
+  `0xe6ea73f60fe1d45b9b0d6411c48384dedb3cb683cb674d3038da6caf0cfefa61`.
+  UI checks: no fixtures in queue or earnings, live indicator, per-row "Claiming…", inline error.
+
+**Tests**: backend 437 unit tests, frontend 70, contracts 64; Playwright e2e `e2e/s1…s11` all pass
 (real Privy wallet logins, real Base Sepolia transactions, real Dodo test payments).
 
 ## 4. ⚠️ IN PROGRESS — do this first
@@ -124,7 +153,10 @@ To finish:
    by e2e). New contributors (tier New) can ONLY claim gold tasks; Verified needs 5 passes at ≥80%.
    Top it up with the admin API (`POST /api/jobs/{id}/tasks {asset_ids, is_gold:true, gold_answer}`)
    or, better, make gold tasks reusable per contributor.
-8. UX: Contributor → Available tasks shows task/job **ids**; show the job title, reward and labels instead (backend `GET /api/tasks/available` + `src/components/product/*Tasks*`). The workspace itself works for images (box drawing) and video (timeline segments).
+8. **Done 2026-10-30**: Contributor → Available tasks now shows the job title, reward and labels
+   (not ids), polls for new org jobs, shows a per-row "Claiming…" state, and keeps claimed work under
+   "In progress" via `/api/tasks/mine`. Test fixtures (`is_test`) are hidden in production, including
+   from earnings. See §3.
 
 ## 6. How to run and check
 

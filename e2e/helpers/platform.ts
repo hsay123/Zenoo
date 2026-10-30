@@ -176,6 +176,10 @@ export async function createPublishedJob(
       budget: opts.budget ?? Number((0.04 * opts.count).toFixed(6)),
       label_list: SCHEMA[opts.modality].labels,
       schema_version_id: SCHEMA[opts.modality].id,
+      // Automated fixtures must never appear in a real contributor's queue.
+      // Production hides `is_test` jobs; development still shows them so the
+      // e2e suite exercises the same claim/review flow.
+      is_test: true,
     },
   });
   expect(job.status, job.text).toBe(201);

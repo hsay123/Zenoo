@@ -28,6 +28,7 @@ import { createSignedMediaUrl } from "@/lib/storage";
 import { getSupabase } from "@/lib/db/supabase";
 import type { ClaimResult } from "@/src/types/api";
 import { getEnv } from "@/lib/env";
+import { shouldHideTestJobs } from "@/lib/jobs/visibility";
 import { claimBlockReason } from "@/lib/reputation/score";
 import { getContributorReputation } from "@/lib/reputation/service";
 
@@ -88,9 +89,10 @@ export async function POST(
 
           // Only funded jobs' tasks are claimable (matches GET /tasks/available):
           // work on an unfunded job could never be paid from escrow.
+          const env = getEnv();
           const { data: jobFunding, error: fundingError } = await supabase
             .from("jobs")
-            .select("funding_status")
+            .select("funding_status, is_test")
             .eq("id", task.job_id as string)
             .maybeSingle();
           if (fundingError) {
@@ -99,9 +101,14 @@ export async function POST(
           if (jobFunding?.funding_status !== "funded") {
             throw HttpError.conflict("Job is not funded yet");
           }
+          // Automated-test fixtures are not claimable in production, even with
+          // a direct link: their work would never be real customer data.
+          if (shouldHideTestJobs(env) && jobFunding.is_test) {
+            throw HttpError.conflict("This task is not available");
+          }
 
           // Reputation gating (HHG F4), enforced server-side.
-          const reputation = await getContributorReputation(user.id, getEnv());
+          const reputation = await getContributorReputation(user.id, env);
           if (reputation.gating) {
             const blocked = claimBlockReason(reputation.tier, {
               is_gold: Boolean(task.is_gold),

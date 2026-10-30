@@ -15,6 +15,7 @@ import { HttpError } from "@/lib/api/errors";
 import { requireRole } from "@/lib/auth/requireRole";
 import { getSupabase } from "@/lib/db/supabase";
 import { getEnv } from "@/lib/env";
+import { shouldHideTestJobs } from "@/lib/jobs/visibility";
 import { claimBlockReason } from "@/lib/reputation/score";
 import { getContributorReputation } from "@/lib/reputation/service";
 
@@ -26,17 +27,20 @@ export async function GET(req: NextRequest) {
   return withCors(
     await withErrorHandler(async () => {
       const user = await requireRole(req, "contributor");
-      const reputation = await getContributorReputation(user.id, getEnv());
+      const env = getEnv();
+      const reputation = await getContributorReputation(user.id, env);
       const base = { tier: reputation.tier, next: reputation.next, gating: reputation.gating };
       if (!reputation.gating) return ok({ ...base, locked: [] });
 
       const supabase = getSupabase();
-      const { data: jobs, error } = await supabase
+      let jobQuery = supabase
         .from("jobs")
         .select("id, title, modality, reward_per_task, label_list")
         .eq("status", "published")
         .eq("funding_status", "funded")
         .eq("is_demo", false);
+      if (shouldHideTestJobs(env)) jobQuery = jobQuery.eq("is_test", false);
+      const { data: jobs, error } = await jobQuery;
       if (error) throw HttpError.internal(`Failed to load jobs: ${error.message}`);
 
       // One query for every open, non-gold task of those jobs, grouped here.
@@ -45,7 +49,7 @@ export async function GET(req: NextRequest) {
       );
       const counts = new Map<string, number>();
       if (lockedJobs.length > 0) {
-        const { data: open, error: openError } = await supabase
+        let openQuery = supabase
           .from("tasks")
           .select("job_id")
           .eq("status", "available")
@@ -53,6 +57,8 @@ export async function GET(req: NextRequest) {
           .eq("is_demo", false)
           .in("job_id", lockedJobs.map((job) => job.id as string))
           .limit(5000);
+        if (shouldHideTestJobs(env)) openQuery = openQuery.eq("is_test", false);
+        const { data: open, error: openError } = await openQuery;
         if (openError) throw HttpError.internal(`Failed to count open tasks: ${openError.message}`);
         for (const row of open ?? []) counts.set(row.job_id as string, (counts.get(row.job_id as string) ?? 0) + 1);
       }

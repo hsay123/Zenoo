@@ -152,6 +152,7 @@ export const jobSchema = z.object({
   funding_wallet_address: z.string().nullable(),
   funded_at: z.string().nullable(),
   is_demo: z.boolean(),
+  is_test: z.boolean(),
 });
 
 /* Buyer funding (HHG F2) — GET /api/jobs/{id}/funding */
@@ -333,10 +334,12 @@ export const taskSchema = z.object({
   lease_expiry: z.string().nullable(),
   job_title: z.string().optional(),
   label_list: z.array(z.string()).optional(),
+  reward_per_task: z.string().optional(),
   signed_media_url: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   is_demo: z.boolean(),
+  is_test: z.boolean(),
 });
 
 export const claimResultSchema = z.object({
@@ -850,6 +853,7 @@ export const platformPaths = {
   jobTasks: (id: string) => `/api/jobs/${id}/tasks`,
   jobExport: (id: string) => `/api/jobs/${id}/export`,
   availableTasks: () => "/api/tasks/available",
+  myTasks: () => "/api/tasks/mine",
   task: (id: string) => `/api/tasks/${id}`,
   claimTask: (id: string) => `/api/tasks/${id}/claim`,
   saveDraft: (id: string) => `/api/tasks/${id}/draft`,

@@ -109,6 +109,8 @@ export async function POST(
         status: "available" as const,
         is_gold: input.is_gold,
         gold_answer: input.is_gold ? (input.gold_answer ?? null) : null,
+        // Fixtures inherit the job's test flag so they stay out of the live queue.
+        is_test: job.is_test,
       }));
 
       const supabase = getSupabase();

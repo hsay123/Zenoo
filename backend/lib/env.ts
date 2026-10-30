@@ -39,6 +39,10 @@ const envSchema = z.object({
     .optional()
     .default("30")
     .transform((v) => parseInt(v, 10)),
+  // Automated-test fixtures (`jobs.is_test`) are created by the e2e suite in
+  // this same database. Default: hidden in production, visible in development
+  // so the suite can claim its own fixtures. Set explicitly to override.
+  HIDE_TEST_JOBS: z.enum(["true", "false"]).optional(),
   // Gold task thresholds
   GOLD_IOU_THRESHOLD: z
     .string()

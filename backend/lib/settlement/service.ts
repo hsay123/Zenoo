@@ -15,6 +15,7 @@
 
 import { getSupabase } from "@/lib/db/supabase";
 import { HttpError } from "@/lib/api/errors";
+import { shouldHideTestJobs } from "@/lib/jobs/visibility";
 import { hashCanonicalJson } from "@/lib/hash";
 import { emitZenoEvent } from "@/lib/notify/viasocket";
 import {
@@ -461,11 +462,14 @@ export async function getEarningsSummary(
   const taskRows = Array.from(unique.values());
 
   const jobIds = Array.from(new Set(taskRows.map((r) => r.task.job_id)));
-  const jobMap = new Map<string, { title: string; reward_per_task: string }>();
+  const jobMap = new Map<
+    string,
+    { title: string; reward_per_task: string; is_test: boolean }
+  >();
   if (jobIds.length > 0) {
     const { data: jobs, error: jobError } = await supabase
       .from("jobs")
-      .select("id, title, reward_per_task")
+      .select("id, title, reward_per_task, is_test")
       .in("id", jobIds);
     if (jobError) {
       throw HttpError.internal(`Failed to load earnings jobs: ${jobError.message}`);
@@ -474,11 +478,19 @@ export async function getEarningsSummary(
       jobMap.set(job.id as string, {
         title: job.title as string,
         reward_per_task: String(job.reward_per_task),
+        is_test: Boolean(job.is_test),
       });
     }
   }
 
-  const submissionIds = taskRows.map((r) => r.id);
+  // Automation fixtures (`is_test`) are not real work: production hides them
+  // from a contributor's history and totals just like it hides them from the
+  // available queue. Development keeps them so e2e can assert on them.
+  const visibleRows = shouldHideTestJobs(getEnv())
+    ? taskRows.filter((row) => jobMap.get(row.task.job_id)?.is_test !== true)
+    : taskRows;
+
+  const submissionIds = visibleRows.map((r) => r.id);
   const receiptBySubmission = new Map<
     string,
     { id: string; tx_hash: string | null; is_mock: boolean }
@@ -500,9 +512,13 @@ export async function getEarningsSummary(
     }
   }
 
-  const tasks = taskRows
+  const tasks = visibleRows
     .map((row) => {
-      const job = jobMap.get(row.task.job_id) ?? { title: "", reward_per_task: "0" };
+      const job = jobMap.get(row.task.job_id) ?? {
+        title: "",
+        reward_per_task: "0",
+        is_test: false,
+      };
       const receipt = receiptBySubmission.get(row.id);
       return {
         task_id: row.task_id,

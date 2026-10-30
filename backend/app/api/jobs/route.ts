@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
           policy_hash: policyHash,
           label_list: input.label_list,
           status: "draft",
+          is_test: input.is_test,
         })
         .select("*")
         .single();

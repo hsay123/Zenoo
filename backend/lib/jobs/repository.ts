@@ -39,6 +39,7 @@ export function toJob(row: JobRow): Job {
     funding_wallet_address: (row.funding_wallet_address as string | null) ?? null,
     funded_at: (row.funded_at as string | null) ?? null,
     is_demo: (row.is_demo as boolean) ?? false,
+    is_test: (row.is_test as boolean) ?? false,
   };
 }
 

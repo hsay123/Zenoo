@@ -172,6 +172,8 @@ export interface Job {
   funding_wallet_address: string | null;
   funded_at: string | null;
   is_demo: boolean;
+  /** Automated-test fixture: hidden from the live contributor queue. */
+  is_test: boolean;
 }
 
 export interface Task {
@@ -185,11 +187,15 @@ export interface Task {
   lease_expiry: string | null;
   job_title?: string;
   label_list?: string[];
+  /** Job's per-task reward (decimal USDC string); set on queue listings. */
+  reward_per_task?: string;
   // signed_media_url: only present on GET /api/tasks/:id
   signed_media_url?: string;
   created_at: string;
   updated_at: string;
   is_demo: boolean;
+  /** Automated-test fixture: hidden from the live contributor queue. */
+  is_test: boolean;
   // Note: gold_answer is never returned to contributors
 }
 

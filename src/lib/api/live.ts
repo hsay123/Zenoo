@@ -35,7 +35,21 @@ export type QueryState<T> =
   | { status: "ready"; data: T; error: null }
   | { status: "error"; data: null; error: PlatformError };
 
-export type Query<T> = QueryState<T> & { reload: () => void };
+export type Query<T> = QueryState<T> & {
+  reload: () => void;
+  /** Epoch ms of the last successful load, or null before the first one. */
+  refreshedAt: number | null;
+};
+
+export type QueryOptions = {
+  enabled?: boolean;
+  /**
+   * Re-fetch this often while the tab is visible. Polling keeps the last good
+   * data on screen; failures surface as an error state instead of silently
+   * serving stale data forever.
+   */
+  refetchIntervalMs?: number;
+};
 
 /** Coerce anything thrown into a `PlatformError` we can render. */
 export function asPlatformError(cause: unknown): PlatformError {
@@ -55,10 +69,11 @@ function useQueryWithClient<T>(
   client: PlatformClient | null,
   key: string,
   loader: (client: PlatformClient) => Promise<T>,
-  options?: { enabled?: boolean },
+  options?: QueryOptions,
 ): Query<T> {
   const loaderRef = useRef(loader);
   const keyRef = useRef(key);
+  const inFlight = useRef(false);
 
   // Keep the latest loader in a ref so callers can build it inline without
   // re-fetching on every render; re-fetches are keyed explicitly below.
@@ -67,7 +82,9 @@ function useQueryWithClient<T>(
   });
 
   const enabled = (options?.enabled ?? true) && client !== null;
+  const refetchIntervalMs = options?.refetchIntervalMs ?? 0;
   const [nonce, setNonce] = useState(0);
+  const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
   const [state, setState] = useState<QueryState<T>>({
     status: "loading",
     data: null,
@@ -81,6 +98,9 @@ function useQueryWithClient<T>(
     keyRef.current = key;
 
     const load = async () => {
+      // A slow request must not overlap the next poll tick.
+      if (inFlight.current) return;
+      inFlight.current = true;
       // Re-fetching the same resource keeps the last good data on screen (so a
       // mutation-triggered reload never blanks the view); a different key
       // starts from a clean loading state.
@@ -91,11 +111,16 @@ function useQueryWithClient<T>(
       );
       try {
         const data = await loaderRef.current(client);
-        if (active) setState({ status: "ready", data, error: null });
+        if (active) {
+          setState({ status: "ready", data, error: null });
+          setRefreshedAt(Date.now());
+        }
       } catch (cause) {
         if (active) {
           setState({ status: "error", data: null, error: asPlatformError(cause) });
         }
+      } finally {
+        inFlight.current = false;
       }
     };
     void load();
@@ -105,8 +130,24 @@ function useQueryWithClient<T>(
     };
   }, [client, key, nonce, enabled]);
 
+  useEffect(() => {
+    if (!enabled || refetchIntervalMs <= 0) return;
+    const id = window.setInterval(() => {
+      // Background tabs do not poll; catch up when the tab is shown again.
+      if (document.visibilityState === "visible") setNonce((n) => n + 1);
+    }, refetchIntervalMs);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setNonce((n) => n + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [enabled, refetchIntervalMs]);
+
   const reload = useCallback(() => setNonce((n) => n + 1), []);
-  return { ...state, reload };
+  return { ...state, reload, refreshedAt };
 }
 
 /**
@@ -115,7 +156,7 @@ function useQueryWithClient<T>(
 export function useClientQuery<T>(
   key: string,
   loader: (client: PlatformClient) => Promise<T>,
-  options?: { enabled?: boolean },
+  options?: QueryOptions,
 ): Query<T> {
   const { client } = useSession();
   return useQueryWithClient(client, key, loader, options);
@@ -128,7 +169,7 @@ export function useClientQuery<T>(
 export function usePublicQuery<T>(
   key: string,
   loader: (client: PlatformClient) => Promise<T>,
-  options?: { enabled?: boolean },
+  options?: QueryOptions,
 ): Query<T> {
   const client = usePlatformClient();
   return useQueryWithClient(client, key, loader, options);
@@ -226,10 +267,31 @@ export function useProjects() {
   );
 }
 
-export function useAvailableTasks(filters?: { modality?: string; job_id?: string }) {
+/** How often the contributor queue refreshes itself. */
+export const QUEUE_POLL_MS = 10_000;
+
+export function useAvailableTasks(
+  filters?: { modality?: string; job_id?: string },
+  options?: QueryOptions,
+) {
   const key = `available-tasks:${filters?.modality ?? ""}:${filters?.job_id ?? ""}`;
-  return useClientQuery(key, (client) =>
-    fetchAllPages(client, taskSchema, platformPaths.availableTasks(), filters),
+  return useClientQuery(
+    key,
+    (client) => fetchAllPages(client, taskSchema, platformPaths.availableTasks(), filters),
+    options,
+  );
+}
+
+/**
+ * Tasks the caller currently holds (claimed + draft). Claiming removes a task
+ * from the available queue, so this is how the contributor gets back to work
+ * they already started.
+ */
+export function useMyTasks(options?: QueryOptions) {
+  return useClientQuery(
+    "my-tasks",
+    (client) => fetchAllPages(client, taskSchema, platformPaths.myTasks()),
+    options,
   );
 }
 

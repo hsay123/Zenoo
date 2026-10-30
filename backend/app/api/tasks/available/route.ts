@@ -22,6 +22,7 @@ import {
 } from "@/lib/validation/jobs";
 import type { Task } from "@/src/types/api";
 import { getEnv } from "@/lib/env";
+import { shouldHideTestJobs } from "@/lib/jobs/visibility";
 import { accessForTier } from "@/lib/reputation/score";
 import { getContributorReputation } from "@/lib/reputation/service";
 
@@ -43,14 +44,18 @@ export async function GET(req: NextRequest) {
       await releaseExpiredLeases();
 
       const supabase = getSupabase();
+      const env = getEnv();
+      // Test fixtures stay out of a real contributor's queue in production.
+      const hideTestJobs = shouldHideTestJobs(env);
 
       // Only tasks whose parent job is published AND funded AND not demo are claimable.
       let jobQuery = supabase
         .from("jobs")
-        .select("id")
+        .select("id, title, reward_per_task, label_list")
         .eq("status", "published")
         .eq("funding_status", "funded")
         .eq("is_demo", false);
+      if (hideTestJobs) jobQuery = jobQuery.eq("is_test", false);
       if (filters.job_id) jobQuery = jobQuery.eq("id", filters.job_id);
       const { data: jobs, error: jobsError } = await jobQuery;
       if (jobsError) {
@@ -62,6 +67,8 @@ export async function GET(req: NextRequest) {
         return ok(paginated<Task>([], 0, page));
       }
 
+      const jobMeta = new Map((jobs ?? []).map((job) => [job.id as string, job]));
+
       let query = supabase
         .from("tasks")
         .select(TASK_PUBLIC_COLUMNS, { count: "exact" })
@@ -71,11 +78,12 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: true })
         .range(page.from, page.to);
 
+      if (hideTestJobs) query = query.eq("is_test", false);
       if (filters.modality) query = query.eq("modality", filters.modality);
 
       // Reputation gating (HHG F4): New contributors see gold (qualification)
       // tasks only; video needs Trusted. Enforced again at claim time.
-      const reputation = await getContributorReputation(user.id, getEnv());
+      const reputation = await getContributorReputation(user.id, env);
       if (reputation.gating) {
         const access = accessForTier(reputation.tier);
         if (access.goldOnly) query = query.eq("is_gold", true);
@@ -85,7 +93,16 @@ export async function GET(req: NextRequest) {
       const { data, error, count } = await query;
       if (error) throw HttpError.internal(`Failed to list tasks: ${error.message}`);
 
-      const items = (data ?? []).map((row) => toTask(row as TaskRow));
+      // The queue must say who is hiring and what it pays, not just task ids.
+      const items = (data ?? []).map((row) => {
+        const job = jobMeta.get(row.job_id as string);
+        return toTask({
+          ...(row as TaskRow),
+          job_title: job?.title ?? null,
+          reward_per_task: job?.reward_per_task ?? null,
+          label_list: job?.label_list ?? null,
+        });
+      });
       return ok(paginated(items, count ?? items.length, page));
     }),
   );

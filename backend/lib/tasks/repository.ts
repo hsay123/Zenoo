@@ -14,7 +14,7 @@ export type TaskRow = Record<string, unknown>;
 
 /** Columns safe to expose to contributors (never `gold_answer`). */
 export const TASK_PUBLIC_COLUMNS =
-  "id, job_id, asset_id, modality, status, is_gold, lease_owner, lease_expiry, created_at, updated_at, is_demo";
+  "id, job_id, asset_id, modality, status, is_gold, lease_owner, lease_expiry, created_at, updated_at, is_demo, is_test";
 
 export function toTask(row: TaskRow, signedMediaUrl?: string): Task {
   const task: Task = {
@@ -29,8 +29,12 @@ export function toTask(row: TaskRow, signedMediaUrl?: string): Task {
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     is_demo: (row.is_demo as boolean) ?? false,
+    is_test: (row.is_test as boolean) ?? false,
   };
   if (signedMediaUrl) task.signed_media_url = signedMediaUrl;
+  if (row.job_title) task.job_title = row.job_title as string;
+  if (row.reward_per_task != null) task.reward_per_task = String(row.reward_per_task);
+  if (row.label_list) task.label_list = row.label_list as string[];
   return task;
 }
 

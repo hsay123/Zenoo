@@ -66,6 +66,12 @@ export const createJobSchema = z.object({
     .array(z.string().trim().min(1))
     .min(1, "label_list must contain at least one label"),
   schema_version_id: z.string().uuid("schema_version_id must be a UUID").optional(),
+  /**
+   * Automated-test fixture. The e2e suite sets this so its jobs never reach a
+   * real contributor's queue (production hides `is_test` jobs). Buyers do not
+   * need it; omitting it creates a normal, visible job.
+   */
+  is_test: z.boolean().optional().default(false),
 });
 
 export type CreateJobInput = z.infer<typeof createJobSchema>;
